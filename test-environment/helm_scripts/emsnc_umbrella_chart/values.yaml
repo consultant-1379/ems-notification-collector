@@ -1,0 +1,83 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+global:
+  timezone: UTC
+  pullSecret: pullsecret
+  security:
+    tls:
+      enabled: false
+  registry:
+    url: armdocker.rnd.ericsson.se
+
+zookeeper:
+  enabled: true
+  fullnameOverride: eric-data-coordinator-zk
+  clientPort: 2181
+  replicas: 1
+  persistence:
+    persistentVolumeClaim:
+      enabled: false
+
+kafka:
+  replicaCount: 3
+  imagePullPolicy: Always
+  createTopics: true
+  enabled: true
+  fullnameOverride: eric-data-message-bus-kf
+  nameOverride: eric-data-message-bus-kf
+  kafkaPort: 9092
+  dataCoordinator:
+    clientServiceName: eric-data-coordinator-zk
+  persistence:
+    persistentVolumeClaim:
+      enabled: false
+
+eric-oss-common-postgres:
+  highAvailability:
+    replicaCount: 1
+  credentials:
+    kubernetesSecretName: eric-eo-database-pg-secret
+
+eric-eo-subsystem-management:
+  replicaCount: 1
+  db:
+    url: eric-oss-common-postgres
+  persistence:
+    persistentVolumeClaim:
+      enabled: false
+
+eric-oss-adc-ems-notification-collector:
+  db:
+    url: eric-oss-common-postgres
+  connectedSystems:
+    host: eric-eo-subsystem-management
+    port: 80
+  kafkaConfig:
+    emsncInternalKafka:
+      host: eric-data-message-bus-kf
+      port: 9092
+      topicCount: 15
+      producerIsolation: "IDEMPOTENT"
+      replicationFactor: 2
+      sendTimeout: 5000
+    dmaapKafka:
+      host: eric-data-message-bus-kf
+      port: 9092
+      topic: "dmaap-result-topic"
+      producerIsolation: "IDEMPOTENT"
+      replicationFactor: 2
+      sendTimeout: 5000

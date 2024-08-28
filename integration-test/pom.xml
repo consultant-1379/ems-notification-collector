@@ -1,0 +1,303 @@
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ ~ COPYRIGHT Ericsson 2021
+ ~
+ ~
+ ~
+ ~ The copyright to the computer program(s) herein is the property of
+ ~
+ ~ Ericsson Inc. The programs may be used and/or copied only with written
+ ~
+ ~ permission from Ericsson Inc. or in accordance with the terms and
+ ~
+ ~ conditions stipulated in the agreement/contract under which the
+ ~
+ ~ program(s) have been supplied.
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.ericsson.oss.common.adc.service</groupId>
+        <artifactId>ems-notification-collector</artifactId>
+        <version>1.0.119-SNAPSHOT</version>
+    </parent>
+    <artifactId>integration-test</artifactId>
+    <version>1.0.119-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>integration-test</name>
+
+    <properties>
+        <docker.buildArg.JAR_FILE>ems-notification-collector-app-${project.version}-springboot.jar</docker.buildArg.JAR_FILE>
+        <docker.buildArg.COMMIT>irrelevant</docker.buildArg.COMMIT>
+        <docker.buildArg.BUILD_DATE>irrelevant</docker.buildArg.BUILD_DATE>
+        <docker.buildArg.APP_VERSION>irrelevant</docker.buildArg.APP_VERSION>
+        <docker.buildArg.RSTATE>irrelevant</docker.buildArg.RSTATE>
+        <docker.buildArg.IMAGE_PRODUCT_NUMBER>irrelevant</docker.buildArg.IMAGE_PRODUCT_NUMBER>
+        <!-- profiles will activate this if docker is avaliable -->
+        <docker.skip>true</docker.skip>
+        <docker.verbose>true</docker.verbose>
+        <!-- disable in default runs -->
+        <skipITs>true</skipITs>
+    </properties>
+
+    <profiles>
+        <profile>
+        <id>enableDocker-linux</id>
+        <properties>
+            <docker.skip>false</docker.skip>
+        </properties>
+        <activation>
+            <!-- Activate on Linux systems. Assume presence of docker.pid file indicates Docker is available -->
+            <file>
+                <exists>/var/run/docker.pid</exists>
+            </file>
+        </activation>
+    </profile>
+
+    <profile>
+        <id>enableDocker-win10</id>
+        <properties>
+            <docker.skip>false</docker.skip>
+        </properties>
+        <activation>
+            <!-- Activate on Windows 10 systems with native Docker. Check for docker.exe in default install directory -->
+            <file>
+                <exists>C:\ProgramData\DockerDesktop\version-bin\docker.exe</exists>
+            </file>
+        </activation>
+    </profile>
+    </profiles>
+
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ericsson.oss.common.adc.service</groupId>
+            <artifactId>connected-systems-client</artifactId>
+            <classifier>tests</classifier>
+            <type>test-jar</type>
+            <version>1.0.119-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.ericsson.oss.common.adc.service</groupId>
+            <artifactId>enm-client</artifactId>
+            <classifier>tests</classifier>
+            <type>test-jar</type>
+            <version>1.0.119-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>${version.kafka-clients}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.tomakehurst</groupId>
+            <artifactId>wiremock-jre8</artifactId>
+            <version>${version.wiremock}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy</artifactId>
+            <version>${version.groovy}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sparkjava</groupId>
+            <artifactId>spark-core</artifactId>
+            <version>${version.sparkjava}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>${version.commons-logging}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${version.lombok}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <version>${version.awaitility}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.ericsson.oss.common.adc.service</groupId>
+            <artifactId>enm-client</artifactId>
+            <version>1.0.119-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.ericsson.oss.common.adc.service</groupId>
+            <artifactId>connected-systems-client</artifactId>
+            <version>1.0.119-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <!-- version inherited from Spring Boot BOM -->
+            <scope>test</scope>
+        </dependency>
+        <!-- although dependency:analyze marks as unused, needed for tests to execute correctly -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <!-- version inherited from Spring Boot BOM -->
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.ericsson.oss.common.adc.service</groupId>
+            <artifactId>ems-notification-collector-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- K8s official client lib -->
+        <dependency>
+            <groupId>io.kubernetes</groupId>
+            <artifactId>client-java</artifactId>
+            <version>12.0.1</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${version.maven-shade-plugin}</version>
+                <executions>
+                    <execution>
+                        <id>simulator-fat-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>standalone-simulator</finalName>
+                            <transformers>
+                                <!-- add Main-Class to manifest file -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.ericsson.oss.adc.emsnc.it.StandaloneSimulator</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <createDependencyReducedPom>false</createDependencyReducedPom>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>${version.docker-maven-plugin}</version>
+                <executions>
+                    <execution>
+                        <id>build-simulator-docker</id>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                        <!-- don't automatically build, takes time and would fail in CI -->
+                        <!-- build with mvn package docker:build if needed  -->
+                        <phase>package</phase>
+                        <configuration>
+                            <images>
+                                <image>
+                                    <name>emsnc-context-simulator</name>
+                                    <build>
+                                        <contextDir>${project.basedir}</contextDir>
+                                        <dockerFile>simulator-Dockerfile</dockerFile>
+                                    </build>
+                                </image>
+                            </images>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>build-emsnc-docker</id>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                        <!-- don't automatically build, takes time and would fail in CI -->
+                        <!-- build with mvn package docker:build if needed  -->
+                        <phase>package</phase>
+                        <configuration>
+                            <images>
+                                <image>
+                                    <name>emsnc-test-image</name>
+                                    <build>
+                                        <contextDir>${project.basedir}/..</contextDir>
+                                        <dockerFile>Dockerfile</dockerFile>
+                                    </build>
+                                </image>
+                            </images>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/it/**</exclude>
+                        <exclude>**/k8s/**</exclude>
+                    </excludes>
+                    <argLine>-Djdk.tls.client.protocols=TLSv1.2</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/it/**</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>k8s-robustness-execution</id>
+                        <phase>none</phase>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/k8s/robustness/**</include>
+                            </includes>
+                            <argLine>-Djdk.tls.client.protocols=TLSv1.2</argLine>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>k8s-performance-execution</id>
+                        <phase>none</phase>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/k8s/performance/**</include>
+                            </includes>
+                            <argLine>-Djdk.tls.client.protocols=TLSv1.2</argLine>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

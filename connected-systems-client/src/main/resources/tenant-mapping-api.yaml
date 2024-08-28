@@ -1,0 +1,324 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+openapi: 3.0.0
+info:
+  title: Tenant Mapping Service
+  description: |
+    EO-SO provides service level tenancy and user isolation per tenant. Connected systems are not isolated per tenant, but access to a connected
+    system can be restricted to one or more tenants by using the tenant mapping functionality. For example, EO-CM may be added as a connected
+    system with multiple connections (i.e. EO-CM tenants or EO-CM users).
+    EO-SO can restrict access to these connections on a per tenant basis. For NFVO connected systems only, it will not be possible to create a
+    network service using that system unless a connection has been mapped to your SO tenant. Users with the Provider Admin role are not subject to
+    this restriction. A connection to an NFVO system can be mapped to multiple SO tenants. For Domain Manager connected systems, it is not required
+    to map any connection prior to creating a network service. These connections are not restricted in the system.
+  contact:
+    name: Service Orchestrator Autobots Team
+    url: 'https://confluence-oss.seli.wh.rnd.internal.ericsson.com/display/ESO/Autobots'
+    email: PDLDOAUTOB@pdl.internal.ericsson.com
+  license:
+    name: "COPYRIGHT Ericsson 2021"
+    url: "https://www.ericsson.com/en/legal"
+  termsOfService: "https://www.ericsson.com/en/legal"
+  version: 0.0.1
+
+tags:
+  - name: Read Tenant Mappings
+  - name: Create and Update Tenant Mappings
+  - name: Delete Tenant Mappings
+
+servers:
+  - url: 'http://localhost/subsystem-manager/{basePath}'
+    variables:
+      hostame:
+        default: eric-eo-subsystem-management
+      basePath:
+        default: v1
+
+paths:
+  /tenant-mappings:
+    get:
+      tags:
+        - Read Tenant Mappings
+      summary: Get the overall list of Tenants mappings
+      description: |
+        Retrieves the Tenants mappings in a paginated way to specifically support GUI operations by means of query parameters
+      operationId: getPaginatedTenantMappings
+      parameters:
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 0
+          description: (Optional) Specifies the starting element of the page of Tenants mappings
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 100
+          description: |
+            (Optional) The maximum number of Tenant mappings results to be returned, starting with offset (dictates size of result page)
+        - name: sortAttr
+          in: query
+          required: false
+          schema:
+            type: string
+            default: tenant
+          description: (Optional) A Tenant attribute by which to sort the Tenants mappings
+        - name: sortDir
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+          description: |
+            (Optional) The direction in which to sort the Tenants mappings. Has no effect if sortAttr is not also specified. May be ASCENDING,
+            DESCENDING, or any fragment from the beginning of either (e.g. ASC or DESC); case-insensitive. Defaults to ASCENDING
+        - name: filters
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+          description: (Optional) Additional filter parameters for the Tenant mappings resources to be returned
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TenantMappingEntry'
+          headers:
+            total:
+              description: The total number of entries
+              schema:
+                type: integer
+                format: int32
+              required: true
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - Create and Update Tenant Mappings
+      summary: Create Tenant Mapping
+      description: Creates a tenant mapping between NFVO and SO tenant
+      operationId: createTenantMapping
+      requestBody:
+        description: Must contain tenant name, subsystem id and connection properties
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantMappingRequest'
+      responses:
+        '201':
+          $ref: 'responses.yaml#/components/responses/Created'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '409':
+          $ref: 'responses.yaml#/components/responses/Conflict'
+
+  /tenant-mappings/{tenantName}:
+    get:
+      tags:
+        - Read Tenant Mappings
+      summary: Get the tenant information by name
+      description: Retrieves the tenant mapping given the tenant name and subsystem identifier
+      operationId: getTenantMappings
+      parameters:
+        - name: tenantName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the mapped tenant
+        - name: subsystemId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: The subsystem identifier for the mapped tenant
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConnectionPropertyResponse'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Create and Update Tenant Mappings
+      summary: Update an existing tenant mapping
+      description: Modifies the list of connection properties in an exisiting tenant mapping
+      operationId: putTenantMappings
+      parameters:
+        - name: tenantName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the mapped tenant
+        - name: subsystemId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: The subsystem identifier for the mapped tenant
+      requestBody:
+        description: List of connection properties IDs to set in the tenant mapping
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantMappingRequest'
+      responses:
+        '204':
+          $ref: 'responses.yaml#/components/responses/NoContent'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+    delete:
+      tags:
+        - Delete Tenant Mappings
+      summary: Delete a tenant mapping
+      description: |
+        Deletes the tenant mapping with the tenant name and subsystem Id. In case the subsystemId is not specified, deletes all the tenants
+      operationId: deleteTenantMapping
+      parameters:
+        - name: tenantName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the tenant
+        - name: subsystemId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: (Optional) Subsystem identifier mapped with the tenant mapping
+      responses:
+        '204':
+          $ref: 'responses.yaml#/components/responses/NoContent'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+
+components:
+  schemas:
+    ConnectionPropertyResponse:
+      description: This is the model representation of the connection property response.
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: The connection properties identifier
+        name:
+          type: string
+          description: The connection properties name
+        parentTenant:
+          type: string
+          description: The name of the parent tenant assigned to the connection properties
+    CreateTenantMappingRequest:
+      description: This is the model representation of the tenant mapping request for creation.
+      type: object
+      properties:
+        tenantName:
+          type: string
+          description: The name of the tenant
+        subsystemId:
+          type: integer
+          format: int64
+          description: The subsystem identifier
+        connectionProperties:
+          type: array
+          uniqueItems: true
+          description: The list of connection properties
+          items:
+            type: integer
+            format: int64
+            description: The connection properties identifier
+    TenantMappingEntry:
+      description: This is the model representation of the tenant mapping entry.
+      type: object
+      properties:
+        tenantName:
+          type: string
+          description: The tenant name
+        subsystemName:
+          type: string
+          description: The subsystem name
+        subsystemType:
+          type: string
+          description: The subsystem type
+        subsystemId:
+          type: integer
+          format: int64
+          description: The subsystem identifier
+        connections:
+          type: integer
+          format: int32
+          description: The connections associated to the tenant
+        vendor:
+          type: string
+          description: The vendor name of the subsystem
+    UpdateTenantMappingRequest:
+      description: This is the model representation of the tenant mapping update request.
+      type: object
+      properties:
+        connectionProperties:
+          type: array
+          readOnly: true
+          uniqueItems: true
+          description: The connection properties associated to the tenant
+          items:
+            type: integer
+            format: int64

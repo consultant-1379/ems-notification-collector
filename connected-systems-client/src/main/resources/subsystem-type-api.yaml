@@ -1,0 +1,146 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+openapi: 3.0.0
+info:
+  title: Subsystem Type Service
+  description: |
+    Subsystem Type Service manages the types of subsystems EO-SO can connect and interwork with.
+    Each subsystem type is identified by an unique identifier and a descriptive type string.
+    The list of connected subsystem types can be retrieved by means of SO REST i/f as herein outlined.
+  contact:
+    name: Service Orchestrator Autobots Team
+    url: 'https://confluence-oss.seli.wh.rnd.internal.ericsson.com/display/ESO/Autobots'
+    email: PDLDOAUTOB@pdl.internal.ericsson.com
+  license:
+    name: "COPYRIGHT Ericsson 2021"
+    url: "https://www.ericsson.com/en/legal"
+  termsOfService: "https://www.ericsson.com/en/legal"
+  version: 0.0.1
+
+tags:
+  - name: Read Subsystem Types
+  - name: Create Subsystem Type
+  - name: Delete Subsystem Type
+servers:
+  - url: 'http://localhost/subsystem-manager/{basePath}'
+    variables:
+      hostame:
+        default: eric-eo-subsystem-management
+      basePath:
+        default: v1
+
+paths:
+  /subsystem-types:
+    post:
+      tags:
+        - Create Subsystem Type
+      summary: Create a Subsystem Type
+      description: Allows to create a custom Subsystem Type
+      operationId: postSubsystemType
+      requestBody:
+        required: true
+        description: Must contain subsystem type
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubsystemTypeRequest'
+      responses:
+        '201':
+          description: |
+            Created
+            The Subsystem Type has been created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/SubsystemType'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+    get:
+      tags:
+        - Read Subsystem Types
+      summary: Get the subsystem types list
+      description: Retrieves subsystem types. Category can be specified to obtain primary, or custom types only.
+      operationId: getSubsystemTypes
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [primary, custom]
+          description: Allows the user to get subsystem types based on category
+      responses:
+        '200':
+          description: The request has succeeded
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: 'common-components.yaml#/components/schemas/SubsystemType'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+  /subsystem-types/{id}:
+    delete:
+      tags:
+        - Delete Subsystem Type
+      summary: Delete a Subsystem Type
+      description: Allows to delete a custom Subsystem Type
+      operationId: deleteSubsystemType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Id of the custom Subsystem Type to delete
+      responses:
+        '204':
+          $ref: 'responses.yaml#/components/responses/NoContent'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+components:
+  schemas:
+    SubsystemTypeRequest:
+      description: Contains data required to create a new Subsystem Type
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Name of the new Subsystem Type

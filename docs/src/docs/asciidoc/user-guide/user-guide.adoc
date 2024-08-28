@@ -1,0 +1,1028 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+= EMS Notification Collector User Guide
+include::../_fragments/parameters.adoc[]
+:toc:
+
+== Overview
+
+This document provides an overview of the EMS Notification Collector
+Service. It gives a brief description of its main features and its
+interfaces.
+
+{service_name} is a microservice for collecting and
+propagating AVC notifications from EMS systems to DMaaP. {service_short} discovers available ENM servers from Connected Systems, fetches AVC notifications from those, and produces messages to the target message bus, each exactly once, retaining message order for each network element monitored.
+
+=== Supported Use Cases
+
+This chapter gives an overview of the supported use cases.
+
+[width="100%",cols="25%,25%,25%,25%",options="header",]
+|===
+|Use Case ID |Use Case Title |Compliance |Maturity
+|UC.EMS.NC.001 |Collecting and propagating AVC notifications |Fully supported
+|Alpha
+|===
+
+=== Architecture
+
+The service is implemented as a Spring Boot application, using a clustered Quartz Scheduler to drive reliable execution of timed tasks, and Kafka to process small batch operations in the correct order.
+
+The following picture shows the {service_name} Service and
+its architectural context.
+
+.Architecture view of EMS Notification Collector
+[plantuml,components,svg]
+....
+@startuml
+top to bottom direction
+
+package "Inventory and Topology Service" #LightBlue {
+  [Connected Systems]
+}
+
+package "EMS Notification Collector" #LightGreen {
+    [EMSNC Service]
+    [ADP Message Bus KF]
+}
+
+database "ADP Document Database PG" #LightGrey {
+  	[emsnc_db]
+}
+
+package "EMS" #Orange {
+    [EMS CM Events NBI]
+}
+
+package "DMaaP" #LightYellow {
+    [Kafka]
+}
+
+[EMSNC Service] --- [Kafka]
+[EMSNC Service] -u- [ADP Message Bus KF]
+[EMSNC Service] -r- [emsnc_db]
+[EMSNC Service] --d- [EMS CM Events NBI]
+[EMSNC Service] --- [Connected Systems]
+
+@enduml
+....
+
+[width="100%",cols="25%,25%,25%,25%",options="header",]
+|===
+|Interface Logical Name |Interface Realization |Description |Interface
+Maturity
+|<__INT.NAME__> |<__Link to specification, JSON, documentation, etc.__>
+|<__Short description of the interface__> |<__Interface Maturity (Alpha,
+Beta, Stable)__>
+|===
+
+=== Deployment View
+
+{service_name} is packaged as a Docker container. It
+supports deployment in Kubernetes using Helm. It is dependent on a
+Connected Systems deployment for retrieving ENM instances and a target
+DMaaP message bus for propagating events. {service_name} also requires
+ADP Document Database PG and ADP Message Bus KF services to store operational data.
+
+To deploy the Service, refer to the <<_deployment>> section, which:
+
+* explains how to get started using the {service_name}
+Service in the supported environments.
+* specifies configuration options for starting the EMS Notification
+Collector docker container.
+
+If problems occur when using the service, refer to the
+<<_troubleshooting>> section.
+
+=== Dimensioning and Characteristics
+
+==== Dimensioning
+
+<__Describe static information such as formulas and things to consider
+in general__>
+
+To handle dimensioning configuration at deployment time, refer to the <<_deployment>> section.
+
+==== Scaling
+
+<__Describe how the service supports scaling from a functional point of
+view. Describe if there are any dependant services or other types of
+resources that must be considered when scaling is performed. Describe
+how many instances it supports using the table below. Note that the
+Deployment Guide only describes how to scale from an operational point
+of view.__>
+
+[width="100%",cols="34%,33%,33%",options="header",]
+|===
+|Scaling Supported (Yes/No) |Minimum number of instances |Maximum number
+of recommended instances
+|<__State Yes or No__> |<__What is minimum number of supported instances
+(normally 1)__> |<__What is max number of recommended instances__>
+|===
+
+==== Resilience
+
+<__Describe from a functional view how it is designed to support
+resilience. How does the service achieve high availability__>
+
+==== Upgrade - In Service Software Upgrade
+
+<__Describe how the service supports upgrades, that is how the service
+fulfills the ISSU requirement. Describe from a function point of view
+how ISSU is supported and what a service unavailability would mean for
+this particular service. Do not include practical commands, that is the
+scope of the Deployment section__>
+
+{service_name} does not keep important data that would be
+lost when going down. Events which happened during the upgrade will not
+be skipped when the service becomes available again.
+
+[#_deployment]
+== Deployment
+
+This section describes the operational procedures for how to deploy and
+upgrade the {service_name} Service in a Kubernetes
+environment with Helm. It also covers hardening guidelines to consider
+when deploying this service.
+
+=== Prerequisites
+
+* _A running Kubernetes environment with helm support, some knowledge of
+the Kubernetes environment, including the networking detail, and access
+rights to deploy and manage workloads._
+* _Access rights to deploy and manage workloads._
+* _Availability of the kubectl CLI tool with correct authentication
+details. Contact the Kubernetes System Admin if necessary._
+* _Availability of the helm package._
+* _Availability of Helm charts and Docker images for the service and all
+dependent services._
+* _Connected Systems should be up and running before installing the EMS
+Notification Collector_
+* _DMaaP instance for event propagation is available_
+* _A Document Database PG deployment running within the same namespace_
+* _A Message Bus KF deployment running within the same namespace_
+
+=== Deployment in a Kubernetes Environment Using Helm
+
+This section describes how to deploy the service in Kubernetes using
+Helm and the `kubectl` CLI client. Helm is a package manager for
+Kubernetes that streamlines the installation and management of
+Kubernetes applications.
+
+==== Preparation
+
+Prepare helm chart and docker images. Helm chart in the following link
+can be used for installation:
+
+<__Link to helm chart package in ARM__>
+
+==== Pre-Deployment Checks for {service_name}
+
+Ensure the following:
+
+* The is not used already in the corresponding cluster. Use `helm list`
+command to list the existing deployments (and delete previous deployment
+with the corresponding if needed).
+* The same namespace is used for all deployments.
+
+==== Helm Chart Installations of Dependent Services
+
+{service_name} depends on Document Database PG, Message Bus
+KF, DMaaP and Connected Systems.
+
+For instructions on how to install dependencies see:
+
+* _https://adp.ericsson.se/marketplace/document-database-pg/documentation/5.6.0/dpi/service-user-guide[Document
+Database PG - User Guide]_
+* _https://adp.ericsson.se/marketplace/message-bus-kf/documentation/1.15.0/dpi/service-user-guide[Message
+Bus KF - User Guide]_
+* _https://adp.ericsson.se/marketplace/connected-systems/documentation/development/additional-documents/component-description[Connected
+Systems - Component Description]_
+
+==== Helm Chart Installation of {service_name} Service
+
+____
+*_Note:_* Ensure all dependent services are deployed and healthy before
+you continue with this step (see previous chapter).
+____
+
+Helm is a tool that streamlines installing and managing Kubernetes
+applications. {service_name} can be deployed on Kubernetes
+using Helm Charts. Charts are packages of pre-configured Kubernetes
+resources.
+
+Users can override the default values provided in the values.yaml
+template of the helm chart. The recommended parameters to override are
+listed in the following section: <<_configuration_parameters>>.
+
+===== Deploy the {service_name} Service
+
+<__Describe installation steps with proper sample commands to deploy and
+configure the service. Try to provide several examples, like:__
+
+* _deployment with mandatory parameters only;_
+* _deployment with some optional parameters._
+
+__If the service supports deployment time parameter to enable/disable
+optional features or interaction with other services, provide a sample
+command for each of these deployment scenarios__>
+
+Install the {service_name} on the Kubernetes cluster by
+using the helm installation command:
+
+[source,text]
+----
+helm install <CHART_REFERENCE> --name <RELEASE_NAME> --namespace <NAMESPACE> [--set <other_parameters>]
+----
+
+The variables specified in the command are as follows:
+
+* `<CHART_REFERENCE>`: A path to a packaged chart, a path to an unpacked
+chart directory or a URL.
+* `<RELEASE_NAME>`: String value, a name to identify and manage your
+helm chart.
+* `<NAMESPACE>`: String value, a name to be used dedicated by the user
+for deploying own helm charts.
+
+===== Verify the {service_name} Service Availability
+
+<__Describe the steps to verify the successful deployment of the
+service. e.g To verify whether the deployment is successful, do as
+follows:__
+
+_1. Check if the chart is installed with the provided release name and
+in related namespace by using the following command:_
+
+[source,text]
+----
+$helm ls <namespace>
+----
+
+_Chart status should be reported as "DEPLOYED"._
+
+_2. Verify the status of the deployed helm chart._
+
+[source,text]
+----
+$helm status <release_name>
+----
+
+_Chart status should be reported as "DEPLOYED". All Pods status should
+be reported as "Running" and number of Deployment Available should be
+the same as the replica count._
+
+_3. Verify that the pods are running by getting the status for your
+pods._
+
+[source,text]
+----
+$kubectl get pods --namespace=<namespace> -L role
+----
+
+_For example:_
+
+[source,text]
+----
+$helm ls example
+$helm status examplerelease
+$kubectl get pods --namespace=example -L role
+----
+
+__All pods status should be "Running". All containers in any pod
+should be reported as "Ready". There is one POD marked as the master
+role and the other PODs are marked as the replica role.__>
+
+[#_configuration_parameters]
+=== Configuration Parameters
+
+==== Mandatory Configuration Parameters
+
+The parameters in following table are mandatory to set at deployment
+time. If not provided, the deployment will fail. There are no default
+values provided for this type of parameters.
+
+[cols=",",options="header",]
+|===
+|Variable Name |Description
+|`subscriptions.neTypes`
+| Comma separated list of NE types, such as `RadioNode,Router6675`. *EMS-N-C* will propagate notifications originating from the NE types specified here.
+|===
+
+==== Optional Configuration Parameters
+
+Following parameters are not mandatory. If not explicitly set (using the
+--set argument), the default values provided in the helm chart are used.
+
+[cols=",,",options="header",]
+|===
+| Variable Name |Description |Default Value
+
+| `global.registry.url`
+| Global image registry.
+| `armdocker.rnd.ericsson.se`
+
+| `global.internalIPFamily`
+| Global ipfamilies for dual-stack implementation. Possible values are: IPv4, IPv6.
+| `[]`
+
+| `global.timezone`
+| Timezone setting.
+| `UTC`
+
+| `global.security.tls.enabled`
+| Enable/Disable TLS in *EMS-N-C*.
+| `true`
+
+| `global.security.sasl.enabled`
+| Enable/Disable SASL in *EMS-N-C*.
+| `false`
+
+| `global.nodeSelector`
+| Global setting for *nodeSelector* .*nodeSelector* is a map of key-value pairs to schedule pods on labeled nodes. For example use label disktype=ssd to assign pods to nodes with this label.
+| `[]`
+
+| `global.pullSecret`
+| Global registry pull secret.
+|
+
+| `global.fsGroup.manual`
+| The fsGroup creates a new group, assigns the service as part of the group, sets the new group as the owner of the shared data, and finally sets read/write group access to the data.
+| `10000`
+
+| `global.fsGroup.namespace`
+| The namespace default fsGroup can be used.
+|
+
+| `global.security.policyBinding.create`
+| Create Policy RoleBinding.
+| `false`
+
+| `global.security.policyReferenceMap.default-restricted-security-policy`
+| Set cluster role reference to security policy.
+| `default-restricted-security-policy`
+
+| `resources.ems-notification-collector.requests.cpu`
+| This is the min CPU required at startup.
+| `250m`
+
+| `resources.ems-notification-collector.requests.memory`
+| This is the min Memory required at startup.
+| `512Mi`
+
+| `resources.ems-notification-collector.requests.ephemeral-storage`
+| This is the min ephemeral-storage required at startup.
+| `100Mi`
+
+| `resources.ems-notification-collector.limits.cpu`
+| This the max CPU that can be requested.
+| `500m`
+
+| `resources.ems-notification-collector.limits.memory`
+| This is the max Memory that can be requested.
+| `2Gi`
+
+| `resources.ems-notification-collector.limits.ephemeral-storage`
+| This is the max ephemeral-storage that can be requested.
+| `100Mi`
+
+| `resources.create-db-schema.requests.cpu`
+| This is the min CPU required at startup.
+| `250m`
+
+| `resources.create-db-schema.requests.memory`
+| This is the min Memory required at startup.
+| `512Mi`
+
+| `resources.create-db-schema.requests.ephemeral-storage`
+| This is the min ephemeral-storage required at startup.
+| `100Mi`
+
+| `resources.create-db-schema.limits.cpu`
+| This the max CPU that can be requested.
+| `500m`
+
+| `resources.create-db-schema.limits.memory`
+| This is the max Memory that can be requested.
+| `2Gi`
+
+| `resources.create-db-schema.limits.ephemeral-storage`
+| This is the max ephemeral-storage that can be requested.
+| `100Mi`
+
+| `replicaCount`
+| Number of replicas.
+| `1`
+
+| `labels`
+| Additional labels allow a list of key/values to be appended to the list of labels of the resource object.
+|
+
+| `podDisruptionBudget`
+| Pod Disruption Budget configuration required during voluntary disruption.
+| `minAvailable: "40%"`
+
+| `nameOverride`
+| If specified, allows the overriding of the name of all Kubernetes resources in the *EMS-N-C* service.
+|
+
+| `annotations`
+| Annotations is a map of key-value pairs which allows users to add custom annotations to the existing list. For example, --set annotations.infoKey1=value1,annotations.infoKey2=value2.
+|
+
+| `imageCredentials.pullSecret`
+| Image pull secret. Overrides global.pullSecret.
+|
+
+| `imageCredentials.emsNotificationCollector.registry.imagePullPolicy`
+| *EMS-N-C* container images pull Policy.
+| `IfNotPresent`
+
+| `imageCredentials.emsNotificationCollector.registry.url`
+| Docker registry url. Overrides global.registry.url.
+|
+
+| `imageCredentials.emsNotificationCollector.repoPath`
+| Docker repository path.
+|
+
+3+^|*Kafka* related parameters
+| `kafkaConfig.emsncInternalKafka.host`
+| Broker host for the internal Kafka cluster.
+| `eric-data-message-bus-kf`
+
+| `kafkaConfig.emsncInternalKafka.port`
+| Broker port for the internal Kafka cluster.
+| `9092`
+
+| `kafkaConfig.emsncInternalKafka.topicCount`
+| Topic count for the EMSNC internal Kafka cluster.
+| `15`
+
+| `kafkaConfig.dmaapKafka.host`
+| Broker host for the DMaaP Kafka cluster.
+| `eric-data-message-bus-kf`
+
+| `kafkaConfig.dmaapKafka.port`
+| Broker port for the DMaaP Kafka cluster.
+| `9092`
+
+| `kafkaConfig.dmaapKafka.topic`
+| Topic to propagate notifications on DMaaP Kafka cluster.
+| `dmaap-result-topic`
+
+3+^|*Database* related parameters
+| `db.host`
+| PostgreSQL database host address.
+| `eric-oss-common-postgres`
+
+| `db.port`
+| PostgreSQL database port.
+| `5432`
+
+| `db.dbName`
+| Database name in the PostgreSQL database.
+| `emsnc_db`
+
+| `db.secret`
+| Secret for PostgreSQL database.
+| `eric-eo-database-pg-secret`
+
+3+^|*Timing* related parameters
+| `timing.connectedSystemsPollingFrequency`
+| Frequency for polling ENM instances from Connected Systems. Possible values: `10_SEC`, `20_SEC`, `30_SEC`, `1_MIN`, `2_MIN`.
+| `2_MIN`
+
+| `timing.enmPollingFrequency`
+| Frequency for polling events from ENM instances. Possible values: `10_SEC`, `20_SEC`, `30_SEC`, `1_MIN`, `2_MIN`.
+| `30_SEC`
+
+| `timing.enmPollingOffset`
+| Offset in seconds between 5 and 60, subtracted from each polling window, can be set to a higher value if events appear late in ENM, and miss the polling window.
+| `5`
+
+3+^|*Connected Systems* related parameters
+| `connectedSystems.host`
+| Host of the Connected Systems REST API.
+| `eric-eo-subsystem-management`
+
+| `connectedSystems.port`
+| Port of the Connected Systems REST API.
+| `8080`
+
+3+^|*Other configuration*
+| `log.logLevel`
+| Log level for EMSNC. Possible values: ERROR, WARN, INFO, DEBUG, TRACE
+| `INFO`
+
+| `log.kafkaLogLevel`
+| Log level for Apache Kafka. Possible values: ERROR, WARN, INFO, DEBUG, TRACE
+| `ERROR`
+|===
+
+=== Service Dimensioning
+
+The service provides by default resource request values and resource
+limit values as part of the Helm chart. These values correspond to a
+default size for deployment of an instance. This chapter gives guidance
+in how to do service dimensioning and how to change the default values
+when needed.
+
+==== Override Default Dimensioning Configuration
+
+If other values than the default resource request and default resource
+limit values are preferred, they must be overridden at deployment time.
+
+Here is an example of the `helm install` command where resource requests
+and resource limits are set:
+
+[source,text]
+----
+helm install https://arm.rnd.ki.sw.ericsson.se/artifactory/proj-adp-helm-dev-generic-local/some/repo/path/eric-data-my-service/eric-data-my-service-1.0.0-999.tgz --name eric-data-myservice --namespace test-deployment-namespace --set <*ADD request and limit parameters valid for this service*>
+----
+
+==== Use Minimum Configuration per Service Instance
+
+This chapter specifies the minimum recommended configuration per service
+instance. <__Columns not applicable in table below should be removed__>
+
+[width="99%",cols="16%,14%,14%,14%,14%,14%,14%",options="header",]
+|===
+|Resource Type (Kubernetes Service) |Resource Request Memory |Resource
+Limit Memory |Resource Request CPU |Resource Limit CPU |Resource Request
+Disk |Resource Limit Disk
+|<__Resource/Service__> |<__minimum memory to request__> |<__resource
+limit for memory that corresponds to the min configuration__>
+|<__minimum CPU to request__> |<__resource limit for CPU that
+corresponds to the min configuration__> |<__resource request for Disk__>
+|<__resource limit for Disk__>
+|===
+
+To use minimum configuration, override the default values for resource
+requests and resource limits in the helm chart at deployment time.
+
+==== Use Maximum (Default) Configuration per Service Instance
+
+The maximum recommended configuration per instance is provided as
+default in the Helm chart. Both Resource Request values and Resource
+Limit values are included in the helm charts.
+
+=== Hardening
+
+The service is by default pre-hardened. No additional hardening is
+required. The following pre-hardening actions have been made:
+
+<__List specific pre-hardening actions made for this service__> <__See
+https://confluence.lmera.ericsson.se/display/AGW/Hardening+Guidelines[here]
+for more details__>
+
+==== Container-level parameters
+include::../_fragments/image-parameters-fragment.adoc[]
+
+
+=== Upgrade Procedures
+
+____
+*_Note:_* If any chart value is customized at upgrade time through the
+"–set" option of the "helm upgrade" command, all other previously
+customized values will be replaced with the ones included in the new
+version of the chart. To make sure that any customized values are
+carried forward as part of the upgrade, consider keeping a versioned
+list of such values. That list could be provided as input to the upgrade
+command in order to be able to use the "–set" option without side
+effects.
+____
+
+<__Add upgrade procedure specific information in this document, for
+example something to be considered related to a certain deployment
+parameter value__>
+
+== Security Guidelines
+
+<__For Security Guidelines details,refer to the Security and Privacy
+Guide section
+https://ericsson.sharepoint.com/sites/networksecurity_classic/ProdSec/default.aspx[here]__>
+
+=== Operative Tasks
+
+<__Describe the operative tasks that are valid for this service (if
+applicable).__>
+
+<__If not applicable, state ``This service does not include any
+operative tasks.''__>
+
+=== External Ports
+
+<__This section is mandatory. List all the services, ports, and
+protocols that are used by the product. If no services, ports, or
+protocols are used by the product, write None and remove the remaining
+rows.__>
+
+The following ports are exposed to the outside of the cluster:
+
+[width="99%",cols="20%,16%,16%,16%,16%,16%",options="header",]
+|===
+|Service or Interface name |Protocol |IP Address Type |Port |Transport
+Protocol |IP Version
+|<__Service or interface name__> |<__Application Protocol__> |<__IP
+Address Type__> |<__Port number__> |<__Transport Protocol__> |<__IP
+Version__>
+
+|… |… |… |… |… |…
+|===
+
+=== Internal Ports
+
+<__This section is mandatory. List all the services, ports, and
+protocols that are used by the product. If no services, ports, or
+protocols are used by the product, write ``None'' and remove the
+remaining rows.__>
+
+The following ports are cluster internal ports and not exposed to the
+outside:
+
+[width="99%",cols="20%,16%,16%,16%,16%,16%",options="header",]
+|===
+|Service or Interface name |Protocol |IP Address Type |Port |Transport
+Protocol |IP Version
+|<__Service or interface name__> |<__Application Protocol__> |<__IP
+Address Type__> |<__Port number__> |<__Transport Protocol__> |<__IP
+Version__>
+
+|… |… |… |… |… |…
+|===
+
+=== Certificates
+
+<__This section is mandatory. If no certificates are used by the
+product, write ``No certificates are used.'' and remove the remaining
+rows.__>
+
+<__List the names of all the certificates that can be used by the
+service and for which detailed information are provided in form of
+https://confluence.lmera.ericsson.se/pages/viewpage.action?pageId=217857109[CPI
+topic]. Report only the certificate names in the following list__>
+
+The following certificates can be used by the service and CPI topics are
+provided for them:
+
+* Certificate <__Certificate Name 1__>
+* Certificate <__Certificate Name 2__>
+* …
+
+=== Security Events that can be logged
+
+<__This section is mandatory. If no security events are logged by the
+product, write ``No security events logged by the service.'' and remove
+the remaining rows.__>
+
+<__List the security events for which logging is supported by the
+product, e.g.__
+
+* _Start-up and shut-down of logging functions_
+* _All authentication and login attempts and their results_
+* __…__>
+
+== Privacy User Guidelines
+
+<__There are different content to include depending of the PTI value
+received during RA & PIA evaluation. Three cases exist: PTI = 0, 1 < PTI
+< 180 and PTI => 180. The PTI value is calculated by completing the
+http://erilink.ericsson.se/eridoc/erl/objectId/09004cff88c640c8?docno=LMF-14:001078Uen&action=approved&format=excel12book[Personal
+Data Classification instruction]. The PTI value must be reported in PRIM
+as an Evaluation Index (EI). For more details, refer to the
+https://erilink.internal.ericsson.com/eridoc/erl/objectId/09004cff8b9af833?docno=EAB-13:019844Uen&format=msw8[Sales
+Compliance Evaluation Index (EI) in PRIM] document.__>
+
+<__If PTI == 0, include following statement and report value in PRIM,
+see
+https://erilink.internal.ericsson.com/eridoc/erl/objectId/09004cff8b9af833?docno=EAB-13:019844Uen&format=msw8[Sales
+Compliance Evaluation Index (EI) in PRIM] document__> The service does
+not collect, store or process personal data on its own.
+
+<__If 0 <= PTI < 180, List and classify the personal data items
+identified during the completion of the
+http://erilink.ericsson.se/eridoc/erl/objectId/09004cff88c640c8?docno=LMF-14:001078Uen&action=approved&format=excel12book[Personal
+Data Classification instruction]. For example:__
+[width="100%",cols="1,1",options="header",]
+|===
+| Personal Data Category | Personal Data Item
+| Basic Data | IP Address, MSISDN, SIP URI
+| Sensitive data (identifiable user activity) | Event Monitoring (Event Based Monitoring, Call Trace Recordings, General Performance Event Handling …)
+|===
+
+__Report value in PRIM, see
+https://erilink.internal.ericsson.com/eridoc/erl/objectId/09004cff8b9af833?docno=EAB-13:019844Uen&format=msw8[Sales
+Compliance Evaluation Index (EI) in PRIM] document__>
+
+<__If PTI >= 180, Create a Privacy User Guide and the document must
+contain:__
+
+* _An overview of all the privacy related functionality supported by the
+product._
+* _An overview of the features which have a privacy impact because of
+the personal data processed when using such features._
+* _Clear indication of the intended use of the product features and
+instructions/procedures for operating the privacy functionality of the
+product._
+* _Instructions/information how to maintain the privacy status of the
+product, i.e. instructions for the privacy configuration of the product
+in the daily O&M activities._
+* _The default values (factory settings) of the privacy parameters, when
+applicable._
+* _Listing and classification of the personal data processed by the
+product._
+
+__Report value in PRIM, see
+https://erilink.internal.ericsson.com/eridoc/erl/objectId/09004cff8b9af833?docno=EAB-13:019844Uen&format=msw8[Sales
+Compliance Evaluation Index (EI) in PRIM] document__>
+
+== Operation and Maintenance
+
+<__In addition to the sections regarding the Core FA’s operations
+reported below, include here the subsections to describe any relevant
+service specific operation__>
+
+=== Performance Management
+
+==== Default Metrics
+
+The PM Metrics provided by the {service_name} are listed in
+the <SERVICE_NAME>_pm_metrics.json file:
+
+<*Add a link to the <SERVICE_NAME>_pm_metrics.json file location in
+the__ __Marketplace documentation artifactory repository*>
+
+<__Instructions: Replace the <SERVICE_NAME> with the name of the
+service__ _used in the helm chart, for example
+``eric-ref-catfacts-text-analyzer''._ *The
+<SERVICE_NAME>_pm_metrics.json file is created following__ __the
+procedure on__
+__https://confluence.lmera.ericsson.se/display/ACD/PM+Metrics+Fragment+handling[PM
+Metrics Fragment handling]__ __and the json file is uploaded to__
+__Marketplace documentation artifactory repository.*>
+
+==== KPIs
+
+<__This section is only applicable for stateful services__ __and can be
+removed if not used.__>
+
+The table below lists the KPIs that are essential to use in order to
+properly monitor the service. These KPIs are used to monitor symptomatic
+conditions that can lead to service downtime or significant service
+degradation. Depending on context and needs, these KPIs can be used for
+visualization, triggering alarms/alerts or remedial actions.
+
+[width="100%",cols="24%,40%,24%,12%",options="header",]
+|===
+|KPI name |KPI short description |KPI specification |KPI usage
+|Persistent volume usage ratio |Ratio of used bytes over total capacity
+in bytes in a volume |kubelet_volume_stats_used_bytes/
+kubelet_volume_stats_capacity_bytes*100 |Identify lack of space in
+filesystem
+
+|<__Cluster status OR Percentage of down instances OR equivalent__>
+|<__short_description__> |<__PromQL_query_expression__>
+|<__usage_description__>
+
+|<__kpi__> |<__short_description__> |<__PromQL_query_expression__>
+|<__usage_description__>
+
+|… |… |… |…
+|===
+
+<__Instructions: The list of KPIs is service specific.__ _However the
+following KPIs must always be included in the table:_
+
+* _Persistent volume usage ratio: the entire row SHALL be reused as is._
+* __<__Cluster status OR Percentage of down instances OR equivalent__>:
+__this row SHALL always be present but the KPI name, short
+description,__ __specification and usage is service specific.*>
+
+=== Backup and Restore
+
+<__If Backup and Restore is not supported by the service, state the
+following:__> The service does not support any kind of backup and
+restore operation.
+
+<__If the service supports Backup and Restore functionality, describe in
+this section the service specific operations needed to perform to
+execute backup and restore tasks (if any). In any case, refer to the
+relevant Backup and Restore Orchestrator Service instruction, for the
+general instructions on backup and restore__>
+
+=== Scaling
+
+<__Add scaling procedure specific information in this document, for
+example something to be considered related to a certain deployment
+parameter value__>
+
+[#_troubleshooting]
+== Troubleshooting
+
+This section describes the troubleshooting functions and procedures for
+the {service_name}. It provides the following information:
+
+* Simple verification and possible recovery.
+* The required information when reporting a bug or writing a support
+case, including all files and system logs that are needed.
+* How to retrieve the above information from the system.
+
+=== Prerequisites
+
+* `kubectl` CLI tool properly configured
+
+=== Installation
+
+<__Suggest procedure to recover a failed installation and collect
+logs__>
+
+=== Deletion of Release
+
+<__Suggest procedure to recover a failure while deleting a release and
+collect logs__>
+
+=== Health checks
+
+<__Suggest procedures to verify the health of the service to verify it
+is working as expected.__>
+
+=== Enable debug logging
+
+<__Describe how to enable debug logging if possible. Please note that
+this should not be a standard procedure since CICD automatically deploys
+and the logs available from the automation should be sufficient. Only
+enable debug logging in order to troubleshoot a problem that can be
+reproduced. Debug logging may impact performance.__>
+
+=== Log Categories
+
+Log Categories are used to support automatic filtering which enable a
+possibility to support AI and machine learning. In the table below the
+log categories provided by the service are listed.
+
+[cols=",,",options="header",]
+|===
+|Category Name |Security Log |Description
+|<__category_name__> |<__yes_no__> |<__category_description__>
+|… |… |…
+|===
+
+<__Instructions: The Category Name must follow the
+https://confluence.lmera.ericsson.se/display/AA/LOG+General+Design+Rules[Log
+General Design Rules] and therefore include the short name of the
+functional area and nature of the logs in the category. The Functional
+Area short name to be used are the Functional Area Acronyms listed in
+the https://confluence.lmera.ericsson.se/display/AA/FA+Inventory[ADP FA
+Invetory]. Each microservices log categories includes The combination of
+the FA short name and the nature of the log category shall be separated
+by dash. Example of category names: IAM-token-generation,
+KM-genkey-issuecert.__>
+
+[#_data_collection]
+=== Data Collection
+
+* The logs are collected from each pod using command:
+
+[source,text]
+----
+kubectl exec <pod name> --namespace=<pod's namespace> \
+collect_logs > <log file name>.tgz
+----
+
+* The detailed information about the pod are collected using command:
+
+[source,text]
+----
+kubectl describe pod <pod name> --namespace=<pod's namespace>
+kubectl exec <pod-name> --namespace=<pod's namespace> env
+----
+
+<__Describe any additional procedure (if any) to collect service
+specific data.__>
+
+=== Bug Reporting and Additional Support
+
+Issues can be handled in different ways, as listed below:
+
+* For questions, support or hot requesting, see Additional Support.
+* For reporting of faults, see Bug Reporting.
+
+==== Additional Support
+
+<__Provide a link to the support form to fill__> If there are EMS
+Notification Collector Service support issues, use the
+https://eteamproject.internal.ericsson.com/projects/GSSUPP[JIRA].
+
+==== Bug Reporting
+
+If there is a suspected fault, report a bug. The bug report must contain
+specific {service_name} Service information and all
+applicable troubleshooting information highlighted in the <<_troubleshooting>>, and <<_data_collection>>.
+
+Indicate if the suspected fault can be resolved by restarting the pod.
+
+<__Provide a link to the tool (usually JIRA) used to report and track
+bugs on the service.__>
+
+<__Provide some guidelines on how to fill the form to report the bug.
+For example, specify the following for Generic Services:__
+
+_When reporting a bug for the <Service Name> Service, specify the
+following in the JIRA issue:_
+
+* _Issue type: Bug_
+* _Component: <Service Name>_
+* _Reported from: the level at which the issue was originally detected
+(ADP Program, Application, Customer, etc.)_
+* _Application: identity of the application where the issue was observed
+(if applicable)_
+* __Business Impact: the business impact caused by the issue for the
+affected users__>
+
+=== Recovery Procedure
+
+This section describes how to recover the service in case of
+malfunction.
+
+<__Create a subsection for any possible recovery procedure that can be
+applied to recover the service. Restarting the pod and Data recovery
+reported below are some common scenarios, that might not be applicable
+for all services__>
+
+==== Restarting the pod
+
+<__Describe how to restart pods if that could resolve problem.__>
+
+==== Data Recovery
+
+<__Describe the recovery procedure. For example, how to recover a data
+service using a restore procedure.__>
+
+=== KPIs troubleshooting
+
+<__This section is only applicable for stateful services.__>
+
+==== <__Title of the problem__>
+
+===== Description
+
+<__Description of the problem.__>
+
+====== Procedures for possible fault reasons and solutions
+
+====== <__Title of handled fault reason #1__>
+
+Prerequisites
+
+* <__Prerequisite for starting the procedure__>
+
+Steps
+
+[arabic]
+. <__First step of action__>
+. <__Second step of action__>
+. …
+
+====== <__Title of handled fault reason #2__>
+
+Prerequisites
+
+* <__Prerequisite for starting the procedure__>
+
+Steps
+
+[arabic]
+. <__First step of action__>
+. <__Second step of action__>
+. …
+
+…
+
+=== Alarm Handling
+
+<__Provide a list of the possible alarms the service can raise and refer
+to the dedicated OPI for problem resolution. Omit this section if the
+service doesn’t raise any alarm.__>
+
+=== Known Issues
+
+<__When applicable, this section shall list the most common problems
+that can occur and the instructions to avoid them__>
+
+== References
+
+https://eteamproject.internal.ericsson.com/projects/GSSUPP[ADP Generic
+Services Support JIRA]

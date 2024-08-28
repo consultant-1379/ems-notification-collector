@@ -1,0 +1,22 @@
+# OpenAPI Generator Ignore
+
+# unused stuff
+**/gradle.properties
+**/gradlew
+**/gradlew.bat
+**/gradle/**
+**/settings.gradle
+**/build.gradle
+**/.travis.yml
+**/pom.xml
+**/build.sbt
+**/docs/*
+**/git_push.sh
+**/.gitignore
+**/.openapi-generator-ignore
+**/AndroidManifest.xml
+**/api/**
+**/README.md
+
+# unnecessary Java helper to get rid of some 3PPs
+**/auth/OAuthOkHttpClient.java

@@ -1,0 +1,258 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+openapi: 3.0.0
+info:
+  title: Connection Properties Service
+  description: |
+    Connection Properties service manages the connection properties that can be associated to each connected subsystem.
+    For each subsystem, there can be several sets of connection properties, each set and their properties are identified by a unique name.
+    Methods for creation, update and deletion of connection properties sets are provided, as well as for modification of single properties.
+  contact:
+    name: Service Orchestrator Autobots Team
+    url: https://confluence-oss.seli.wh.rnd.internal.ericsson.com/display/ESO/Autobots
+    email: PDLDOAUTOB@pdl.internal.ericsson.com
+  license:
+    name: "COPYRIGHT Ericsson 2021"
+    url: "https://www.ericsson.com/en/legal"
+  termsOfService: "https://www.ericsson.com/en/legal"
+  version: 0.0.1
+
+tags:
+  - name: Read Connection Properties
+  - name: Create Connection Properties
+  - name: Update Connection Properties
+  - name: Create and Update Connection Properties
+  - name: Delete Connection Properties
+  
+servers:
+  - url: 'http://localhost/subsystem-manager/{basePath}'
+    variables:
+      hostame:
+        default: eric-eo-subsystem-management
+      basePath:
+        default: v1
+
+paths:
+  /subsystems/{subsystemId}/connection-properties:
+    get:
+      tags:
+        - Read Connection Properties
+      summary: Read the connection properties
+      description: Reads all the connection properties for a given subsystem identifier.
+      operationId: getConnPropsBySubsystemId
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+    post:
+      tags:
+        - Create Connection Properties
+      summary: Create the connection properties on a susbsystem
+      description: Creates a set of connection properties on the specified subsystem identifier.
+      operationId: postConnProps
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+      requestBody:
+        description: The set of connection properties to be created
+        content:
+          application/json:
+            schema:
+              $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+      responses:
+        '201':
+          description: |
+            Created
+            The object has been created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+  /subsystems/{subsystemId}/connection-properties/{connectionPropertiesId}:
+    get:
+      tags:
+        - Read Connection Properties
+      summary: Read the connection properties
+      description: Reads the connection properties associated to a given connection properties identifier.
+      operationId: getConnPropsById
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+        - name: connectionPropertiesId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The connection properties identifier
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+    put:
+      tags:
+        - Create and Update Connection Properties
+      summary: Add or update connection properties for a specific subsystem
+      description: |
+        This adds or updates properties associated with a subsystem object. The required properties must be included since this updates the
+        connectionProperties to the request body.
+        The user must ensure that there are no errors. To check this, the user must do a GET request on the required connection property.
+      operationId: putConnPropsById
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+        - name: connectionPropertiesId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The connection properties identifier
+      requestBody:
+        description: The Connection Properties that will be updated or added.
+        content:
+          application/json:
+            schema:
+              $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+      responses:
+        '201':
+          description: |
+            Created
+            The Connection Properties have been created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+    delete:
+      tags:
+        - Delete Connection Properties
+      summary: Delete the connection properties from a spesific subsystem.
+      description: Deletes the connection properties identified by the connectionPropertiesId, from the subsystem identified by te subsystemId
+      operationId: deleteConnPropsById
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+        - name: connectionPropertiesId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The connection properties identifier
+      responses:
+        '204':
+          $ref: 'responses.yaml#/components/responses/NoContent'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+    patch:
+      tags:
+        - Create and Update Connection Properties
+      summary: Patch a connection property associated with a subsystem
+      description: |
+        This adds or updates a connection property object associated with a subsystem. If a key in the request payload exists in referenced
+        connectionPropertiesId, then it updates its value. If there is no key, then it is added to the connection properties object.
+      operationId: patchConnPropsById
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+        - name: connectionPropertiesId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The connection properties identifier
+      requestBody:
+        description:
+          The list of properties to be added or updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectionPropertiesMap'
+      responses:
+        '201':
+          description: |
+            Created
+            The object has been created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+
+components:
+  schemas:
+    ConnectionPropertiesMap:
+      description: The key/value map in which the key is the name of the property, and the value is the actual property value.
+      type: object
+      additionalProperties:
+        type: object
+        description: The value of the connection property

@@ -1,0 +1,27 @@
+[
+{{#each this}}{{#unless @first}},
+{{/unless}}  {
+    "id": {{this.id}},
+    "subsystemTypeId": 1,
+    "name": "{{this.name}}",
+    "url": "{{this.uri}}",
+    "connectionProperties": [
+      {
+        "id": {{this.connectionPropertiesId}},
+        "subsystemId": {{this.id}},
+        "username": "{{this.user}}",
+        "password": "{{this.password}}",
+        "encryptedKeys": [
+          "password"
+        ],
+        "subsystemUsers": []
+      }
+    ],
+    "vendor": "Ericsson",
+    "subsystemType": {
+      "id": 1,
+      "type": "DomainManager",
+      "category": "Primary"
+    }
+  }{{/each}}
+]

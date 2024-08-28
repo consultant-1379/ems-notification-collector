@@ -1,0 +1,77 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+openapi: 3.0.0
+info:
+  title: Adapter Links Service
+  description: |
+    Adapter Links Service manages pool of adapters which allow for connectivity and interworking between EO-SO Connected Systems. Those adapters are
+    specified with unique names. SO allows to retrieve the adapters names as based on a specified subsystem type.
+
+  contact:
+    name: Service Orchestrator Autobots Team
+    url: https://confluence-oss.seli.wh.rnd.internal.ericsson.com/display/ESO/Autobots
+    email: PDLDOAUTOB@pdl.internal.ericsson.com
+  license:
+    name: "COPYRIGHT Ericsson 2021"
+    url: "https://www.ericsson.com/en/legal"
+  termsOfService: "https://www.ericsson.com/en/legal"
+  version: 0.0.1
+
+tags:
+  - name: Read Adapter Links
+
+servers:
+  - url: 'http://localhost/subsystem-manager/{basePath}'
+    variables:
+      hostame:
+        default: eric-eo-subsystem-management
+      basePath:
+        default: v1
+
+paths:
+  /subsystems/adapter-links:
+    get:
+      tags:
+        - Read Adapter Links
+      summary: List all the Adapter Links
+      description: Gets the list of all the Adapter Links optionally filtered out by the specified subsystem type
+      operationId: getAdaptersLinks
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            default: NFVO
+          description: (Optional) specifies the subsystem type to filter the list of adapter links
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: 'responses.yaml#/components/responses/InternalServerError'

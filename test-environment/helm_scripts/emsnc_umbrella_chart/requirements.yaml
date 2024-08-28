@@ -1,0 +1,45 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+dependencies:
+  - alias: zookeeper
+    name: eric-data-coordinator-zk
+    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+    version: 1.14.0+37
+    condition: zookeeper.enabled
+
+  - alias: kafka
+    name: eric-data-message-bus-kf
+    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+    version: 1.16.0+27
+    condition: kafka.enabled
+
+  - alias: eric-oss-common-postgres
+    name: eric-data-document-database-pg
+    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+    version: 5.6.0+61
+
+  - alias: eric-eo-subsystem-management
+    name: eric-eo-subsystem-management
+    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-so-gs-all-helm
+    version: 2.0.1-170
+
+  # Note: VERSION can be updated by executing `bob helm-install-umbrella-chart:update-requirements-yaml` to
+  # the version fro .bob/var.version. Otherwise update manually and run `helm dependency update && helm dependency build`
+  - alias: eric-oss-adc-ems-notification-collector
+    name: eric-oss-adc-ems-notification-collector
+    repository: __HELM_CHART_REPO__
+    version: __VERSION__

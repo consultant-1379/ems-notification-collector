@@ -1,0 +1,408 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+openapi: 3.0.0
+info:
+  title: Subsystem Management Service
+  description: |
+    The Subsystem Management service allows Users to create and configure connected systems. Connected systems are the external systems which EO-SO
+    will interact with during the life-cycle of a network service. EO-SO requires an NFVO and a Domain Manager / EMS system for the life-cycle
+    management of network services.
+
+    An instance of a connected system cannot be deleted if is currently in use by an active service.
+    The service must be deleted prior to deleting the connected system.
+
+    EO-SO supports:
+      * Multiple instances of Domain Manager / EMS - unlimited per vendor.
+  contact:
+    name: Service Orchestrator Autobots Team
+    url: 'https://confluence-oss.seli.wh.rnd.internal.ericsson.com/display/ESO/Autobots'
+    email: PDLDOAUTOB@pdl.internal.ericsson.com
+  license:
+    name: "COPYRIGHT Ericsson 2021"
+    url: "https://www.ericsson.com/en/legal"
+  termsOfService: "https://www.ericsson.com/en/legal"
+  version: 0.0.1
+
+tags:
+  - name: Greeting Message
+  - name: Subsystems Reading
+  - name: Subsystems Creation and Update
+  - name: Subsystems Delete
+
+servers:
+  - url: 'http://localhost/subsystem-manager/{basePath}'
+    variables:
+      hostame:
+        default: eric-eo-subsystem-management
+      basePath:
+        default: v1
+
+paths:
+  /:
+    get:
+      tags:
+        - Greeting Message
+      summary: Read the greeting message
+      description: Reports the greeting message
+      operationId: greeting
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                default: 'Welcome to Subsystem Management Service'
+  /subsystems:
+    get:
+      tags:
+        - Subsystems Reading
+      summary: Get the overall list of Subsystems
+      description: |
+        Reads the whole set of subsystems filtered out by query parameters or retrieves the Subsystems mappings in a paginated way to specifically
+        support GUI operations by means of query parameters
+      operationId: getSubsystems
+      parameters:
+        - name: select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: (Optional) Subsystem identifier
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 0
+          description: (Optional) Specifies the starting element of the page of Subsystems
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 100
+          description: (Optional) The maximum number of Subsystems results to be returned, starting with offset (dictates size of result page)
+        - name: sortAttr
+          in: query
+          required: false
+          schema:
+            type: string
+            default: name
+          description: (Optional) A Subsystem attribute by which to sort the Subsystems mappings
+        - name: sortDir
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+          description: |
+            (Optional) The direction in which to sort the Subsystems. Has no effect if sortAttr is not also specified. May be ASCENDING,
+            DESCENDING, or any fragment from the beginning of either (e.g. ASC or DESC); case-insensitive. Defaults to ASCENDING
+        - name: filters
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+          description: (Optional) Additional filter parameters for the Subsystems resources to be returned
+        - name: tenantName
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+          description: (Optional) Tenant name
+        - name: paramsMap
+          in: query
+          required: false
+          schema:
+            type: object
+            additionalProperties:
+              type: object
+          description: (Optional) Array of Subsystem info
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            total:
+              description: The total number of entries
+              schema:
+                type: integer
+                format: int32
+              required: false
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+    post:
+      tags:
+        - Subsystems Creation and Update
+      summary: Onboard a Connected System
+      description: |
+        Allows you to on-board a Connected System. When the connected system is of type NFVO , multiple connection properties can be added with
+        predefined fields; while when the connected system is of type Domain Manager, a single connection property
+        is available with predefined fields
+      operationId: postSubsystem
+      requestBody:
+        description:
+          Information of subsistem to create
+        content:
+          application/json:
+            schema:
+              $ref: 'common-components.yaml#/components/schemas/Subsystem'
+      responses:
+        '201':
+          description: |
+            Created
+            The object has been created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/Subsystem'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '409':
+          $ref: 'responses.yaml#/components/responses/Conflict'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+    delete:
+      tags:
+        - Subsystems Delete
+      summary: Delete multiple subsystems
+      description: Is used to remove multiple Subsystems from Service Orchestration
+      operationId: deleteSubsystems
+      requestBody:
+        description:
+          Array of subsystem to delete
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubsystemList'
+      responses:
+        '204':
+          $ref: 'responses.yaml#/components/responses/NoContent'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '409':
+          $ref: 'responses.yaml#/components/responses/Conflict'
+        '500':
+          $ref: 'responses.yaml#/components/responses/InternalServerError'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+  /subsystems/{subsystemId}:
+    get:
+      tags:
+        - Subsystems Reading
+      summary: Get the subsystem information
+      description: |
+        Reads a subsystem information identified by its subsystem identifier.
+        The "select" keyword query can be used to return all items of type specified in the selectfield name, for example, "id".
+      operationId: getSubsystem
+      parameters:
+        - name: select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: (Optional) Subsystem identifier
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the subsystem
+        - name: tenantName
+          in: query
+          required: false
+          schema:
+            type: string
+          description: (Optional) Tenant name
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+    put:
+      tags:
+        - Subsystems Creation and Update
+      summary: Upddate the subsystem information
+      description: |
+        Is used to update the details for existing Subsystem for ServiceOrchestration
+
+        Used only to update the name, url, and connectionProperties of the subsystem
+
+        Include the required properties to update all connectionProperties in the requestbody
+      operationId: putSubsystem
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Subsystem identifier
+      requestBody:
+        description: Array of updated info
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubsystemMap'
+      responses:
+        '200':
+          description: |
+            Created
+            The object has been created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/Subsystem'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '409':
+          $ref: 'responses.yaml#/components/responses/Conflict'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+    delete:
+      tags:
+        - Subsystems Delete
+      summary: Delete a subsystem
+      description: Is used to remove a Subsystem from Service Orchestration
+      operationId: deleteSubsystem
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Subsystem identifier
+      responses:
+        '204':
+          $ref: 'responses.yaml#/components/responses/NoContent'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '409':
+          $ref: 'responses.yaml#/components/responses/Conflict'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+    patch:
+      tags:
+        - Subsystems Creation and Update
+      summary: Update the subsystem information
+      description: Updates a subsystem
+      operationId: patchSubsystem
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Subsystem identifier
+      requestBody:
+        description: Array of updated info
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubsystemMap'
+      responses:
+        '200':
+          description: |
+            Created
+            The object has been created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'common-components.yaml#/components/schemas/Subsystem'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '409':
+          $ref: 'responses.yaml#/components/responses/Conflict'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+components:
+  schemas:
+    SubsystemMap:
+      description: The key/value map in which the key is subsystem identifier and the value is the subsystem information.
+      type: object
+      additionalProperties:
+        description: Subsystem information
+        type: object
+    SubsystemList:
+      description: The list of the subsystem identifiers
+      type: array
+      uniqueItems: true
+      items:
+        description: The identifier of the subsystem
+        type: string

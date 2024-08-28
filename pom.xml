@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ ~ COPYRIGHT Ericsson 2021
+ ~
+ ~
+ ~
+ ~ The copyright to the computer program(s) herein is the property of
+ ~
+ ~ Ericsson Inc. The programs may be used and/or copied only with written
+ ~
+ ~ permission from Ericsson Inc. or in accordance with the terms and
+ ~
+ ~ conditions stipulated in the agreement/contract under which the
+ ~
+ ~ program(s) have been supplied.
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.4.2</version>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=950769  -->
+        <relativePath />
+    </parent>
+    <groupId>com.ericsson.oss.common.adc.service</groupId>
+    <artifactId>ems-notification-collector</artifactId>
+    <version>1.0.119-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>ems-notification-collector</name>
+
+    <scm>
+        <developerConnection>${ericsson.scm.url}</developerConnection>
+        <connection>${ericsson.scm.url}</connection>
+        <tag>HEAD</tag>
+    </scm>
+
+    <properties>
+        <sonar.coverage.exclusions>connected-systems-client/**/*.java,docs/**/*.java,ems-notification-collector-api/**/*.java,enm-client/**/*.java,integration-test/**/*.java</sonar.coverage.exclusions>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <ericsson.scm.url>
+            scm:git:[fetch=]ssh://gerrit.ericsson.se:29418/OSS/com.ericsson.oss.common.adc.service/ems-notification-collector[push=]ssh://gerrit.ericsson.se:29418/OSS/com.ericsson.oss.common.adc.service/ems-notification-collector
+        </ericsson.scm.url>
+
+        <!-- 3PP Versions -->
+        <!-- Bazaar link and FOSS approval needed -->
+        <version.jackson-databind-nullable>0.2.1</version.jackson-databind-nullable>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=932363  -->
+        <version.jaeger-client>1.1.0</version.jaeger-client>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=927463 -->
+        <version.logstash-logback-encoder>6.5</version.logstash-logback-encoder>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=947799 -->
+        <version.lombok>1.18.16</version.lombok>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=944295 -->
+        <version.micrometer>1.6.5</version.micrometer>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=965399 -->
+        <version.openjdk>11</version.openjdk>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=943700 -->
+        <version.springfox>3.0.0</version.springfox>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=943461 -->
+        <version.swagger-annotations>1.6.2</version.swagger-annotations>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=942772 -->
+        <version.okhttp>4.9.1</version.okhttp>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=969719 -->
+        <version.gson>2.8.6</version.gson>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=918259 -->
+        <!-- note: ESW3 (yellow), for the latest version, see: https://mvnrepository.com/artifact/com.google.code.gson/gson/2.8.6 -->
+        <version.gson-fire>1.8.4</version.gson-fire>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=945823 -->
+        <version.retrofit>2.9.0</version.retrofit>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=947362 -->
+        <version.flyway>6.4.4</version.flyway>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=940860 -->
+        <version.spring-cloud-sleuth>3.0.2</version.spring-cloud-sleuth>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=967213 -->
+
+        <!-- Ericsson Dependency Versions -->
+        <!-- No FOSS approval needed -->
+        <version.eric-common-logging>1.0.16</version.eric-common-logging>
+
+        <!-- Test Dependencies -->
+        <!-- No FOSS approval needed -->
+        <version.h2>1.4.200</version.h2>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=929509 -->
+        <version.spring-cloud-contract>3.0.1</version.spring-cloud-contract>
+        <!-- no Bazaar link for this version, not needed  -->
+        <version.wiremock>2.27.2</version.wiremock>
+        <!-- no Bazaar link for this version, not needed  -->
+        <version.mockito>3.8.0</version.mockito>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=968826 -->
+        <version.handlebars>4.2.0</version.handlebars>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=942719 -->
+        <version.awaitility>4.0.3</version.awaitility>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=936225 -->
+        <testcontainers.version>1.15.2</testcontainers.version>
+        <!-- TODO add link -->
+
+        <!-- Used only in integration-test, counts as test dependencies -->
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=13669 -->
+        <!-- ESW4, but only a transitive of another 3PP -->
+        <version.commons-logging>1.2</version.commons-logging>
+        <!-- no Bazaar link for this version, not needed  -->
+        <version.groovy>3.0.8</version.groovy>
+        <!-- no Bazaar link for this version, not needed  -->
+        <version.kafka-clients>2.8.0</version.kafka-clients>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=955839 -->
+        <version.sparkjava>2.9.3</version.sparkjava>
+
+        <!-- Used for generating documentation, no FOSS approval needed-->
+        <version.plantuml>1.2021.2</version.plantuml>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=955988 -->
+        <version.asciidoctorj>2.5.1</version.asciidoctorj>
+        <!-- no Bazaar link for this version, not needed  -->
+        <version.asciidoctorj-diagram>2.1.2</version.asciidoctorj-diagram>
+        <!-- no Bazaar link for this version, not needed  -->
+        <version.snakeyaml>1.28</version.snakeyaml>
+        <!-- https://bazaar.internal.ericsson.com/b-view-component.php?componentid=956680 -->
+
+        <!-- Plugin versions -->
+        <!-- No FOSS approval needed -->
+        <version.asciidoctor-maven-plugin>2.1.0</version.asciidoctor-maven-plugin>
+        <version.openapi-generator-maven-plugin>5.1.1</version.openapi-generator-maven-plugin>
+        <version.maven-release-plugin>2.4.2</version.maven-release-plugin>
+        <version.maven-jar-plugin>3.2.0</version.maven-jar-plugin>
+        <version.maven-scm-provider-gitexe>1.8.1</version.maven-scm-provider-gitexe>
+        <version.license-maven-plugin>3.0</version.license-maven-plugin>
+        <version.sonar-maven-plugin>3.8.0.2131</version.sonar-maven-plugin>
+        <version.jacoco-maven.plugin>0.8.7</version.jacoco-maven.plugin>
+        <version.spotless-plugin>2.11.0</version.spotless-plugin>
+        <version.maven-shade-plugin>3.2.4</version.maven-shade-plugin>
+        <version.docker-maven-plugin>0.36.0</version.docker-maven-plugin>
+        <version.spring-cloud-contract-maven-plugin>3.0.2</version.spring-cloud-contract-maven-plugin>
+    </properties>
+
+
+    <modules>
+        <module>ems-notification-collector-app</module>
+        <module>ems-notification-collector-api</module>
+        <module>connected-systems-client</module>
+        <module>enm-client</module>
+        <module>integration-test</module>
+        <module>docs</module>
+    </modules>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>${version.spotless-plugin}</version>
+                    <configuration>
+                        <formats>
+                            <format>
+                                <includes>
+                                    <include>*.md</include>
+                                    <include>*.adoc</include>
+                                    <include>*.xml</include>
+                                    <include>*.yml</include>
+                                    <include>*.yaml</include>
+                                    <include>*.properties</include>
+                                    <include>*.json</include>
+                                    <include>.gitignore</include>
+                                </includes>
+                                <!-- define the steps to apply to those files -->
+                                <endWithNewline />
+                                <indent>
+                                    <spaces>true</spaces>
+                                    <spacesPerTab>2</spacesPerTab>
+                                </indent>
+                            </format>
+                        </formats>
+                        <!-- define a language-specific format -->
+                        <java>
+                            <googleJavaFormat>
+                                <version>1.8</version>
+                                <style>GOOGLE</style>
+                            </googleJavaFormat>
+                        </java>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <version>${version.license-maven-plugin}</version>
+                    <configuration>
+                        <header>license/copyright-2021.txt</header>
+                        <validHeaders>
+                            <validHeader>license/copyright-2020.txt</validHeader>
+                        </validHeaders>
+                        <excludes>
+                            <exclude>settings.xml</exclude>
+                            <exclude>**/.openapi-generator/**</exclude>
+                            <exclude>.bob/*</exclude>
+                            <exclude>.bob*/</exclude>
+                            <exclude>**/.helmignore</exclude>
+                            <exclude>**/*.html</exclude>
+                            <exclude>**/_helpers.tpl</exclude>
+                            <exclude>**/*.tgz</exclude>
+                            <exclude>**/VERSION*</exclude>
+                            <exclude>**/*.repo</exclude>
+                            <exclude>license/copyright*</exclude>
+                            <exclude>design-rule-check-report*</exclude>
+                            <exclude>zally-api-lint-report.txt</exclude>
+                            <exclude>*artifact.properties</exclude>
+                            <exclude>**/rest_conversion_log.txt</exclude>
+                            <exclude>**/rest2html*.zip</exclude>
+                        </excludes>
+                        <headerDefinitions>
+                            <headerDefinition>./license/javaHeaderDefinition.xml</headerDefinition>
+                            <headerDefinition>./license/xmlHeaderDefinition.xml</headerDefinition>
+                            <headerDefinition>./license/adocHeaderDefinition.xml</headerDefinition>
+                        </headerDefinitions>
+                        <mapping>
+                            <adoc>asciidoc_style</adoc>
+                        </mapping>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>${version.sonar-maven-plugin}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${version.jacoco-maven.plugin}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <source>11</source>
+                        <target>11</target>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>snapshot</id>
+            <name>armseligic-snapshot</name>
+            <url>https://arm.seli.gic.ericsson.se/artifactory/proj-eric-oss-dev-local</url>
+        </snapshotRepository>
+        <repository>
+            <id>release</id>
+            <name>armseligic-release</name>
+            <url>https://arm.seli.gic.ericsson.se/artifactory/proj-eric-oss-release-local</url>
+        </repository>
+    </distributionManagement>
+</project>

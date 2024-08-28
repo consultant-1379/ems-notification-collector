@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ ~ COPYRIGHT Ericsson 2021
+ ~
+ ~
+ ~
+ ~ The copyright to the computer program(s) herein is the property of
+ ~
+ ~ Ericsson Inc. The programs may be used and/or copied only with written
+ ~
+ ~ permission from Ericsson Inc. or in accordance with the terms and
+ ~
+ ~ conditions stipulated in the agreement/contract under which the
+ ~
+ ~ program(s) have been supplied.
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<configuration>
+    <root level="INFO">
+        <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+            <file>/tmp/simulator.log</file>
+            <append>true</append>
+            <!-- set immediateFlush to false for much higher logging throughput -->
+            <immediateFlush>true</immediateFlush>
+            <!-- encoders are assigned the type
+                 ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
+            <encoder>
+                <pattern>%-4relative [%thread] %-5level %logger{35} - %msg%n</pattern>
+            </encoder>
+        </appender>
+    </root>
+
+    <!-- Turning down the wiremock and Kafka logging -->
+    <logger name="com.github.tomakehurst.wiremock" level="ERROR"/>
+    <logger name="wiremock.org" level="ERROR"/>
+    <logger name="WireMock" level="ERROR"/>
+    <logger name="org.apache.kafka" level="ERROR"/>
+    <!-- wiremock has per endpoint servlet logging -->
+    <logger name="/" level="INFO"/>
+</configuration>

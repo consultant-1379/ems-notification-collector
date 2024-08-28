@@ -1,0 +1,100 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "context-simulator.fullname" . }}
+  labels:
+    {{- include "context-simulator.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "context-simulator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "context-simulator.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if include "context-simulator.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "context-simulator.pullSecrets" . }}
+      {{- end }}
+      serviceAccountName: {{ include "context-simulator.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ENM_HOST
+              value: {{ .Values.config.enmhost }}
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.config.kafkaBootstrap }}
+            - name: KAFKA_TOPIC
+              value: {{ .Values.config.kafkaTopic }}
+            - name: EVENT_CYCLES
+              value: {{ .Values.config.eventCycles | quote }}
+            - name: CS_HOST
+              value: {{ .Values.config.csHost }}
+            - name: CS_PORT
+              value: {{ .Values.config.csPort | quote }}
+          ports:
+            - name: cli
+              containerPort: 8080
+              protocol: TCP
+            - name: enm1
+              containerPort: 8281
+              protocol: TCP
+            - name: enm2
+              containerPort: 8282
+              protocol: TCP
+            - name: cs
+              containerPort: 8280
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: cli
+          readinessProbe:
+            httpGet:
+              path: /
+              port: cli
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

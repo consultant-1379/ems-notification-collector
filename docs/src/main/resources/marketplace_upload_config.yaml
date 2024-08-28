@@ -1,0 +1,24 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+documents:
+  - name: "Service User Guide"
+    filepath: docs/target/generated-docs-archives/emsnc-user-guide.zip
+    default: true
+  - name: "Troubleshooting Guide"
+    filepath: docs/target/generated-docs-archives/emsnc-troubleshooting-guide.zip
+  - name: "YANG Conversion"
+    filepath: docs/target/generated-docs-archives/emsnc-yang-conversion.zip

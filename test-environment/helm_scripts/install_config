@@ -1,0 +1,11 @@
+export PROJECT_NAME=proj-cerberus
+export DOCKER_USERNAME="testautoci"
+export DOCKER_PASSWORD="AKCp8jQ8dKCaAMx8rEjQceERuu8inr8G7Dzvhyrq3JSTjvo6nwHDAZpTD5uXQtgTeDXh3JFbZ"
+export HELM_REPO_USER="testautoci"
+export HELM_REPO_PASS='&SmgE!!RJ87joL7T'
+export K8S_NAMESPACE="k8s-bora-test"
+export DOCUMENT_DB_VERSION="5.5.0+50"
+export DATA_COORDINATOR_VERSION="1.14.0+37"
+export MESSAGE_BUS_KF_VERSION="1.16.0+27"
+export CONNECTED_SYSTEMS_VERSION="2.0.1-170"
+export EMSNC_VERSION="1.0.83-1"

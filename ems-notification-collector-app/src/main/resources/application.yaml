@@ -1,0 +1,142 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+#Metrics related configurations
+management.endpoint.metrics.enabled: "true"
+management.endpoints.web.exposure.include: "*"
+management.endpoint.prometheus.enabled: "true"
+management.metrics.export.prometheus.enabled: "true"
+management.metrics.web.server.auto-time-requests: "true"
+
+#opentracing.jaeger.enabled: "true"
+
+endpoints.health.sensitive: "false"
+info.app.name: '@name@'
+info.app.description: Microservice chassis app
+info.app.version: '@version@'
+info.app.legal: "COPYRIGHT Ericsson 2021 -
+ The copyright to the computer program(s) herein is the property of
+ Ericsson Inc. The programs may be used and/or copied only with written
+ permission from Ericsson Inc. or in accordance with the terms and
+ conditions stipulated in the agreement/contract under which the
+ program(s) have been supplied."
+
+#See more details about pattern layout: https://logging.apache.org/log4j/1.2/apidocs/org/apache/log4j/PatternLayout.html
+#See more details about logging.pattern.level : https://docs.spring.io/spring-boot/docs/2.4.2/reference/html/spring-boot-features.html#boot-features-custom-log-configuration
+#logging.pattern.level: "%5p [%X{X-B3-TraceId:-},%X{X-B3-SpanId:-},%X{X-Span-Export:-}][%X{userName}]"
+
+#============================================================================
+# APP-specific configuration
+#============================================================================
+emsnc:
+#============================================================================
+# Kafka clusters
+#============================================================================
+  kafka:
+    emsnc-internal:
+      bootstrap-servers: ${EMSNC_KAFKA_HOST:localhost}:${EMSNC_KAFKA_PORT:9092}
+      topic-count: ${EMSNC_KAFKA_TOPIC_COUNT:15}
+      producer-isolation: ${EMSNC_KAFKA_PRODUCER_ISOLATION:NONE}
+      send-timeout: ${EMSNC_KAFKA_SEND_TIMEOUT:5000}
+      partition-count: ${EMSNC_KAFKA_PARTITION_COUNT:4}
+      replication-factor: ${EMSNC_KAFKA_REPLICATION_FACTOR:1}
+      concurrency-per-topic: ${EMSNC_KAFKA_CONCURRENCY_PER_TOPIC:2}
+      consumer-thread-priority: ${EMSNC_KAFKA_CONSUMER_THREAD_PRIORITY:3}
+      # TODO introduce parameters for security configuration
+
+    dmaap:
+      bootstrap-servers: ${DMAAP_KAFKA_HOST:localhost}:${DMAAP_KAFKA_PORT:9093}
+      propagation-topic-name: ${DMAAP_KAFKA_TOPIC:dmaap-result-topic}
+      partition-count: ${DMAAP_KAFKA_PARTITION_COUNT:4}
+      producer-isolation: ${DMAAP_KAFKA_PRODUCER_ISOLATION:NONE}
+      send-timeout: ${EMSNC_KAFKA_SEND_TIMEOUT:5000}
+      replicationFactor: ${DMAAP_KAFKA_REPLICATION_FACTOR:1}
+      # TODO introduce parameters for security configuration
+
+#============================================================================
+# Subscriptions
+#============================================================================
+  subscriptions:
+    ne-types: ${SUBSCRIPTION_NE_TYPES:RadioNode,Router6675}
+
+#============================================================================
+# Timings
+#============================================================================
+  timing:
+    connected-systems-polling-cron-schedule: ${INTERNAL_CONNECTED_SYSTEMS_POLLING_CRON_SCHEDULE:0 0/2 * * * ?}
+    ems-polling-cron-schedule: ${INTERNAL_ENM_POLLING_CRON_SCHEDULE:10/30 * * * * ?}
+    # has to match the value in the cron schedule, e.g. for '0/30 * * * * ?' it is 30, '0 * * * * ?' it is 60,
+    # for '0/15 * * * * ?' it is 15
+    polling-period-seconds: ${INTERNAL_ENM_POLLING_PERIOD:30}
+    polling-offset-seconds: ${ENM_POLLING_OFFSET:15}
+
+#============================================================================
+# REST clients
+#============================================================================
+  client:
+    enm:
+# TODO add a parameter, make it false by default
+      httpClientTrustAllCertificates: true
+    connected-systems:
+      host: ${CONNECTED_SYSTEMS_HOST:localhost}
+      port: ${CONNECTED_SYSTEMS_PORT:9500}
+
+---
+#============================================================================
+# Live configuration, not applied in test in this YAML multi-document part
+# https://docs.spring.io/spring-boot/docs/current/reference/html/howto.html#howto-change-configuration-depending-on-the-environment
+#============================================================================
+spring.config.activate.on-profile: default
+
+#============================================================================
+# Database
+#============================================================================
+spring.datasource.url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:emsnc_db}
+spring.datasource.username: ${DB_USERNAME:quartz-node}
+spring.datasource.password: ${DB_PASSWORD:quartz-pg-pass}
+spring.jpa.database-platform: org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.generate-ddl: true
+
+spring.flyway:
+  url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:emsnc_db}
+  user: ${DB_USERNAME:quartz-node}
+  password: ${DB_PASSWORD:quartz-pg-pass}
+  enabled: true
+
+#============================================================================
+# Quartz scheduler
+#============================================================================
+spring.quartz.job-store-type: jdbc
+spring.quartz.jdbc.initialize-schema: never
+spring.quartz.properties.org.quartz:
+  scheduler:
+    instanceId: AUTO #Default hostname and timestamp generate instance ID, which can be any string, but must be the only corresponding qrtz_scheduler_state INSTANCE_NAME field for all dispatchers
+    #instanceName: clusteredScheduler #quartzScheduler
+  jobStore:
+    class: org.quartz.impl.jdbcjobstore.JobStoreTX #Persistence Configuration
+    driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+    useProperties: false #Indicates that JDBC JobStore stores all values in JobDataMaps as strings, so more complex objects can be stored as name-value pairs rather than serialized in BLOB columns.In the long run, this is safer because you avoid serializing non-String classes to BLOB class versions.
+    tablePrefix: EMSNC_  #Database Table Prefix
+    misfireThreshold: 60000 #The number of milliseconds the dispatcher will "tolerate" a Trigger to pass its next startup time before being considered a "fire".The default value (if you do not enter this property in the configuration) is 60000 (60 seconds).
+    clusterCheckinInterval: 5000 #Set the frequency (in milliseconds) of this instance'checkin'* with other instances of the cluster.Affects the speed of detecting failed instances.
+    isClustered: true #Turn on Clustering
+  threadPool: #Connection Pool
+    class: org.quartz.simpl.SimpleThreadPool
+    threadCount: ${SCHEDULING_THREAD_COUNT:10}
+    threadPriority: ${SCHEDULING_THREAD_PRIORITY:5}
+    threadsInheritContextClassLoaderOfInitializingThread: true
+    threadNamePrefix: scheduler
+

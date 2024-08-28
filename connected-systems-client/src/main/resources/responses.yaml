@@ -1,0 +1,206 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+components:
+  responses:
+    BasicOk:
+      description: |
+        OK
+        The request has succeeded.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+    Accepted:
+      description: >
+        Accepted
+        The request was accepted for processing, but the  processing has not been completed. The response body shall be empty. The HTTP response
+        shall include a "Location" HTTP header that contains the URI of the newly-created "VNF LCM operation occurrence" resource corresponding to
+        the operation.
+      headers:
+        Location:
+          description: The resource URI of the created VNF instance
+          schema:
+            type: string
+            format: url
+    NoContent:
+      description: |
+        NoContent
+        The object has been updated/deleted successfully.
+    Created:
+      description: |
+        Created
+        The object has been created successfully.
+    BadRequest:
+      description: |
+        Bad Request
+        If the request is malformed or syntactically incorrect (e.g. if the request URI contains incorrect query parameters or the payload body
+        contains a syntactically incorrect data structure), the API producer shall respond with this response code. --- If the response to a GET
+        request which queries a container resource would be so big that the performance of the API producer is adversely affected, and the API
+        producer does not support paging for the affected resource, it shall respond with this response code. --- If there is an application error
+        related to the client's input that cannot be easily mapped to any other HTTP response code ("catch all error"), the API producer shall respond
+        with this response code.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDetails'
+    Unauthorized:
+      description: |
+        Unauthorized
+        If the request contains no access token even though one is required, or if the request contains an authorization token that is invalid (e.g.
+        expired or revoked), the API producer should respond with this response. The details of the error shall be returned in the WWW-Authenticate
+        HTTP header, as defined in IETF RFC 6750 and IETF RFC 7235. The ErrorDetails structure may be provided.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDetails'
+    Forbidden:
+      description: |
+        Forbidden
+        If the API consumer is not allowed to perform a particular request to a particular resource, the API producer shall respond with this
+        response code. The "ErrorDetails" structure shall be provided. It should include in the "detail" attribute information about the source of
+        the problem, and may indicate how to solve it.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDetails'
+    InternalServerError:
+      description: |
+        Internal Server Error
+        If there is an application error not related to the client's input that cannot be easily mapped to any other HTTP response code ("catch all
+        error"), the API producer shall respond with this response code. The "ErrorMessage" structure shall be provided, and shall include in the
+        "detail" attribute more information about the source of the problem.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDetails'
+    NotFound:
+      description: |
+        Not Found
+        If the API producer did not find a current representation for the resource addressed by the URI passed in the request, or is not willing to
+        disclose that one exists, it shall respond with this response code. The "ErrorDetails" structure may be provided, including in the "detail"
+        attribute information about the source of the problem, e.g. a wrong resource URI variable.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDetails'
+    Conflict:
+      description: |
+        Conflict
+        Another request is in progress that prohibits the fulfilment of the current request, or the current resource state is inconsistent with the
+        request.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDetails'
+    ServiceUnavailable:
+      description: |
+        Service Unavailable
+        If the API producer encounters an internal overload situation of itself or of a system it relies on, it should respond with this response
+        code, following the provisions in IETF RFC 7231 [13] for the use of the "Retry-After" HTTP header and for the alternative to refuse the
+        connection. The "ErrorDetails" structure may be omitted.
+      headers:
+        Content-Type:
+          description: The MIME type of the body of the response.
+          schema:
+            type: string
+            minimum: 1
+            maximum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorDetails'
+  schemas:
+    ErrorDetails:
+      description: |
+        Data Structure relating to any error that has occured throughout the
+        system.
+      type: object
+      required:
+        - userMessage
+        - internalErrorCode
+        - developerMessage
+      properties:
+        userMessage:
+          description: |
+            A short, human-readable summary of the problem type. It should not change from occurrence to occurrence of the problem, except for
+            purposes of localization (e.g., using proactive content negotiation; see [RFC7231], Section 3.4). If type is given and other than
+            "about:blank", this attribute shall also be provided.
+          type: string
+        internalErrorCode:
+          description: |
+            The Internal Error code for this occurrence of the problem.
+          type: string
+        developerMessage:
+          description: |
+            A human-readable explanation specific to this occurrence of
+            the problem.
+          type: string
+        httpStatus:
+          description: |
+            The http status of the error.
+          type: string
+        errorData:
+          description: |
+            Supplementary information for the error message.
+          type: array
+          items:
+            type: string

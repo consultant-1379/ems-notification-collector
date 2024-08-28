@@ -1,0 +1,60 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+FROM ubuntu:latest
+
+ENV ENM_HOST=localhost
+ENV CS_HOST=localhost
+ENV CS_PORT=8280
+ENV ENM_PORTS=8281,8282
+ENV EVENT_CYCLES=100000
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=xterm
+
+RUN \
+  echo "**** install apt packages ****" && \
+  apt-get -y update && \
+  apt-get install -y \
+    openjdk-11-jre \
+    tmux \
+    kafkacat \
+    golang \
+    gcc \
+    curl \
+    git && \
+  echo "**** install gotty ****" && \
+  mkdir -p /tmp/gotty && \
+  GOPATH=/tmp/gotty go get github.com/yudai/gotty && \
+  mv /tmp/gotty/bin/gotty /usr/local/bin/ && \
+  chmod +rx /usr/local/bin/gotty && \
+  echo "**** cleanup ****" && \
+  rm -rf /tmp/gotty && \
+  apt-get remove -y golang git gcc && \
+  apt-get autoremove -y && \
+  rm -rf /var/lib/apt/lists/**
+
+ARG USER_ID=40514
+ARG USER_NAME="eric-oss-adc-ems-notification-collector-simulator"
+ARG JAR_FILE
+
+ADD target/standalone-simulator.jar standalone-simulator.jar
+ADD entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+HEALTHCHECK --interval=1s --timeout=5s --start-period=1s --retries=15 CMD bash -c "[ -f /tmp/wiremock-is-ready ]"
+
+ENTRYPOINT ["/entrypoint.sh"]
+

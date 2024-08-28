@@ -1,0 +1,94 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+= Requirements
+
+== Notifications to propagate
+When a value changes in the managed configuation, an AVC (attribute value change) notification is generated, EMS Notification Collector propagates those notifications to interested services through DMaaP. The configuration managed in ENM consists of a +right hand side_, which is owned by ENM, and describes the node identity and its position in the network topology, and a _left hand side_, which is a mirror of the local configuration existing in the network element.
+
+The configuration is represented as 2 trees of managed objects, a tree of `NetworkElement=<NE identifier>` and its children MOs, representing the _right hand side_ configuration, and a tree of `ManagedElement=<NE identifier>` representing the _left hand side_. EMS Notification Adapter is supposed to propagate all notifications from both trees, requirements about exact order propagation apply to the 2 trees of the same network element. The mapping between the 2 trees is defined by the <NE identifier>, both root MOs have the same unique identifier attribute.
+
+.Structure of the configuration
+[plantuml,context,png]
+....
+@startuml
+node node1 #white [
+A remote network element
+..
+{{
+  database config [
+<b>ManagedElement=name
+<b>  ->XyFunction=1
+<b>    ->SomeMo=1
+<b>  ->AbFunction=1
+<b> ...
+]
+
+note right of config: Local configuration of the network element
+
+}}
+]
+
+node enm #white [
+ENM
+..
+{{
+
+  database "ENM managed configuration" as rights {
+    collections rightc [
+<b>NetworkElement=name
+<b>  -> CmFunction=1
+<b>  ...
+]
+  }
+
+  database "ENM synchronized configuration" as lefts {
+    collections leftc [
+<b>ManagedElement=name
+<b>  ->XyFunction=1
+<b>    ->SomeMo=1
+<b>  ->AbFunction=1
+<b> ...
+]
+  }
+
+note top of rights: ENM configuration about \nthe node identity and position \nin network topology
+note top of lefts: The local node configuration \nsynchronized in ENM database
+
+}}
+]
+
+cloud "Some network                                           " as net
+node1 -down- net
+net -down- enm
+
+
+@enduml
+....
+
+== Subscriptions
+A _subscription_ on EMS Notification Adapter represents a _Network Element type_ (e.g. VDU), which is represented as the `neType` attribute on the `NetworkElement` MO, `ManagedElement` MOs have different types (e.g. there are different `ManagedElement` MO types in various NE-specific modeling namespaces).
+
+For phase 1, the list of subscriptions is statically configured at deployment time, later an API based dynamic subscription model may be added.
+
+== Reliability
+* Connected Systems does not reflect any ENM state, has no recollection of its past state (e.g. can only query the current list of ENMs). EMS-N-C implementation can assume the list is unchanged, until an updated list is successfully queried.
+** We can assume ENM appeared at that point we have first seen in a response from the Connected Systems, don't need to assume it existed earlier.
+** If an ENM instance is not present in the C-S response, any remaining tasks for that ENM can be discarded, since trying to fetch events is most likely impossible.
+* All participants are expected to provide high reliability, EMS-N-C does not need to prepare to catch up on hours of missed events. If a such outage happens, anything overdue by 2 hours can be discarded, but the operators must be notified on the FM interface
+* Events should be propagated with exactly-once semantics, in correct order. If it is impossible to perform event propagation in a fully consistant way, consistency errors are tolerated as:
+** (Most tolerable): Duplicate events (e.g. a notification is produced to DMaaP in more than one copies
+** Losing events (which are older than 2 hours). In that case, an operator has to check / acknowledge any FM events and alarms, that involves manually checking and fixing the effect in downstream applications.
+** (Least / not at all tolerable): propagating events in the wrong order, since that could cause severe problems in downstream applications. Note: correct order only required from events from a single NE (CM tree of that NE?)

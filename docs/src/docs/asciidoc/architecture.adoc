@@ -1,0 +1,99 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+= Proposed EMS notification collector architecture
+
+.Planned architecture
+[plantuml,diagram-classes,png]
+....
+@startuml
+title Publishing CM Notification Events
+
+skinparam sequenceArrowThickness 2
+' skinparam roundcorner 20
+skinparam maxmessagesize 60
+' skinparam sequenceParticipant underline
+
+box "Inventory and Topology Service" #LightBlue
+  participant "Connected Systems \n API" as A
+end box
+
+box "EMS"
+  participant "ENM events \n API" as Ev
+  participant "ENM scripting \n API" as Es
+end box
+
+box "EMS notification collector" #LightGreen
+  database "Persistent database" as C
+  participant "Quartz \n scheduled job" as S
+  collections "Kafka topics \n <b>emsnc-internal-XX</b>" as K
+  participant "Kafka listener \n service" as L
+end box
+
+box "Data Management and Movement" #LightYellow
+participant "Kafka topic \n(used by DMaaP)" as D
+end box
+
+autonumber 1
+
+note over A,D: Updating the list of ENM instances
+
+loop each <polling period> \n no repeat on error
+  	S <-> A : Get list of ENMs
+    Activate S
+    S -> C : Update scheduled jobs and ENM connectivity data
+    Deactivate S
+end
+
+note over A,D: Publishing the tasks to the internal Kafka topics
+
+loop (for each polling period \n repeats on error to avoid missing a period)
+    S <-> C : get ENM credentials
+    Activate S
+    S <-> Es : get the list of targetNames (cmedit get...)
+    S -> K : Prepare and publish tasks
+    Deactivate S
+end
+
+note over A,D: Transforming the notifications
+
+loop (driven by available tasks in the topics \ repeats on error to avoid missing notifications)
+    K -> L : Consume a task
+    Activate L
+    L <-> C : get ENM credentials
+    L <-> Ev : Get list of Events matching the task
+    L -> L : transform received events
+    L -> D : Produce notifications to DMaaP
+    Deactivate L
+end
+@enduml
+....
+
+The service is implemented as a _Spring Boot_ application, using a clustered _Quartz Scheduler_ to drive reliable execution of timed tasks, and _Kafka_ to process small batch operations in the correct order.
+
+=== Quartz
+
+* DST - everything should work with UTC timing to avoid DST and other time zone related problems.
+** Time is stored as `long` values representing _milliseconds from epoch_ (Unix time)
+** Time should be processed using `java.time.Instant`
+* Misfire instructions and exception handling should be used (to catch up on missed scheduling)
+* Clustering
+** PostgreSQL needed
+** Instructions to set up DB tables for Quartz: https://github.com/quartz-scheduler/quartz/wiki/How-to-Setup-Databases
+
+== Links, references
+
+* https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/
+* http://www.quartz-scheduler.org/documentation/

@@ -1,0 +1,175 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+= Testing of EMS-N-C
+
+EMS Notification Collector is part of ADC (Analytics Data Collection), end-to-end testing with real services should happen in the ADC context. This repository contains unit and integration tests.
+
+== Wiremock
+EMS-N-C uses ENM and Connected Systems APIs, these can be simulated with a Wiremock server running together with the test implementation. The same Wiremock based fixture can be used for both tests.
+
+== Unit tests
+The unit tests test small parts (individual classes), or parts of the application with, or without initializing a Spring context. These should execute and pass just from running the test classes from an IDE or using maven-surefire-plugin, and should not rely on any external applications or local Docker containers.
+
+[plantuml,diagram-unit,png]
+.Spring unit tests
+....
+@startuml
+package "JUnit Spring Boot tests" {
+  rectangle "EMS-N-C Spring application with test profile" as emsnc {
+    rectangle "non-clustered Quartz \n without PostgreSQL"
+    rectangle "Substitute for internal Kafka"
+    rectangle "Mockbean DMaaP service" as dmaap
+  }
+
+  package "JUnit / surefire test" {
+    rectangle "Wiremock" as wiremock {
+      interface "ENM notification API" as enm
+      interface "Connected \n Systems API" as cs
+    }
+    rectangle "JUnit test code" as test
+  }
+
+  emsnc <-> wiremock: uses \n API
+
+  test <.up.> enm :"configures and \n verifies"
+  test <.up.> cs :"configures and \n verifies"
+  test ..> dmaap :"verifies"
+}
+
+@enduml
+....
+
+== Integration tests
+
+Integration tests should test the final container image, without any test-related modifications, running it with multiple instances to also cover the concurrency aspects. The tests should set up a scenario using Wiremock, and verify that the application propagated the correct notifications in the correct order.
+
+[plantuml,diagram-integration,png]
+.Integration tests
+....
+@startuml
+package "Local Docker containers" {
+
+  rectangle PostgreSQL as db
+  rectangle "Internal Kafka" as kafka
+  collections "EMS-N-C \n (multiple instances)" as emsnc
+
+  rectangle "DMaaP Kafka" as dmaap
+
+}
+
+emsnc -left- kafka
+emsnc -- db
+
+package "JUnit / failsafe based Integration tests" {
+  rectangle "JUnit test code" as test
+  rectangle "Wiremock" as wiremock {
+    interface "ENM notification API" as enm
+    interface "Connected \n Systems API" as cs
+  }
+}
+
+test --> enm: configures
+test -> cs: configures
+
+emsnc <==> enm
+emsnc <==> cs
+emsnc ==> dmaap: propagates\n notifications
+
+test <.. dmaap: verifies propagated messages
+
+@enduml
+....
+
+=== Connected Systems WireMock requirements
+==== /subsystem-manager/v1/subsystem-types
+* Return DomainManager subsystem type. Simple static response.
+
+==== /subsystem-manager/v1/subsystems
+* Return subsystem list, containing the ENM wiremock instance(s).
+* The number of returned ENM WireMock instances can be configured. This enables us to simulate an ENM instance being added or removed.
+** The exact implementation of this is not yet decided. Could use WireMock states, or we could edit the stub itself when needed.
+
+=== ENM WireMock requirements
+* Use the WireMock Java API instead of JSON templates
+
+==== Authentication endpoint:
+* Login endpoint generates a token cookie for each test case. This token can only be used until the end of that test case. Before the next TC starts, the login stub needs to be edited to return a new cookie, and the events stub will be modified to accept that new cookie.
+* Only the specified test user login is authenticated
+
+==== Events endpoint:
+* Valid cookie is required
+* Correct JSON parsing of filterClauses
+* Timestamp parsing, then generating events after that timestamp (for example, 1 event per second)
+* Support for ordering by eventDetectionTimestamp asc and desc
+* For each parsed target name, one event is returned (example: 4 unique names in the request, we generate one event for each name in every second)
+* Dummy invalid NE name, for which we return the same error ENM would return for an unknown NE name
+* Invalid timestamp format error response is returned
+
+=== When to start WireMock?
+We'll start WireMock in the setup phase of the JUnit test, and stop it at the end of the test class.
+
+=== When to clean, populate WireMock?
+No need to clean, but we'll have to edit the login and event stubs to accept a new cookie for each test. This editing can be done before each TC. This ensures that we'll catch bugs where the adapter would try to use an invalid / expired cookie to authenticate. We'll populate it with stubs once, during the test class setup.
+
+
+The alternative is (we'll decide which one to go with during development) to completely clean WireMock after each TC, then register the stubs with the new cookie set.
+
+== Contract tests
+
+Contract testing means that we take the API definition (called a contract) of a service we use, and create test cases which break if the contract is altered in a way that affects EMS-N-C. In theory, this also helps the teams whose microservices we rely on, as they can see if a change they make to the contract breaks our tests. Contract tests do not prevent functional bugs, they only help catch API breaking changes. The contract tests should only test the endpoints we actually use in Connected Systems. ENM has no contract available.
+
+Since we won't have an API in Phase 1, there is currently no need to write a contract for ems-notification-collector.
+
+Example contract test and further explanation: https://eth-wiki.rnd.ki.sw.ericsson.se/display/EAP/3.+Testing+a+microservice#id-3.Testingamicroservice-Contracttesting
+
+== Performance tests
+
+*Prerequisites*: for local test execution, you need a Kubernetes environment. You can install EMSNC on a cluster, or you can create your own Minikube cluster on your Linux VDI. For the Minikube environment you can follow this guide: https://confluence-oss.seli.wh.rnd.internal.ericsson.com/display/IDUN/Minikube+installation+on+Linux+VDI
+
+
+After you have the environment you have to follow the "Installation of EMSNC umbrella chart" guide in the `helm_install.adoc`, then you can run the performance test cases in the `K8sPerformanceTest` class.
+
+=== Specifications of our reference Linux VDI environments
+
+[cols=","]
+|===
+|CPU Model |Intel(R) Xeon(R) Gold 6132 CPU @ 2.60GHz
+|Core Count |6
+|Thread Count |6
+|RAM | 32 GB
+|===
+
+=== Test results on Linux VDI (Minikube environment):
+==== Measure Largest Successful Target Heavy Processing:
+
+* Largest processable target instance count with a single EMS adapter instance: 50620
+
+==== Measure Largest Successful Event Heavy Processing & Burst Scenario:
+
+* Largest total amount of processed events during 1 cycle with a single EMS adapter instance: 50600
+* Burst scenario: Generating events with 5 targetInstanceCount, 5060 eventsGeneratedByTarget, 101200 total event count
+
+==== Measure Largest Successful Event Heavy Processing By Multiple Instances:
+
+*  Largest total amount of processed events during 1 cycle with multiple EMS adapter instances: 50600
+
+==== Measure Largest Successful Target Heavy Processing By Multiple Instances:
+
+*  Largest processable target instance count with multiple EMS adapter instances: 50620
+
+
+
+

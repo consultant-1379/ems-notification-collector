@@ -1,0 +1,246 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+# Default values for eric-oss-adc-ems-notification-collector.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#global:
+#  registry:
+#    url: armdocker.rnd.ericsson.se
+#  nodeSelector: {}
+
+#global:
+#  timezone: UTC
+#  postgresCredentials:
+#    secret: eric-eo-database-pg-secret
+
+#  registry:
+#    url: armdocker.rnd.ericsson.se
+#  #Secret must be manually created in the namespace, no default value
+#  pullSecret: eric-adp-example-secret
+#  fsGroup:
+#    manual: 10000
+#    namespace: true
+#  # The IP family the service belongs to when service.type is set to ClusterIP.
+#  # Options are: IPv4, IPv6
+#  internalIPFamily:
+#  security:
+#    roleBinding:
+#      create: true
+#    roleReferenceMap:
+#      default-restricted-security-policy: "<restricted security policy at customer deployment>"
+#    tls:
+#      enabled: true
+
+replicaCount: 1
+
+podDisruptionBudget:
+  # Minimum number/percentage of Pods that must remain available during the planned disruption.
+  # Value can be expressed as an integer or as a percentage. When specified as a percentage of the Pods,
+  # if it does not map to an exact number, Kubernetes rounds up to the nearest integer.
+  # minAvailable: 2 # example value for 2 pods defined as integer
+  minAvailable: "40%"
+
+productInfo:
+  # R-State of the product. R State should match helm chart version (3.1.0 -> R2A)
+  # To automate it when packaging the helm chart rstate can be generated
+  # and below value replaced with correct R-Statei by e.g. Bob
+  rstate: RSTATE
+
+updateStrategy:
+ type: RollingUpdate
+ rollingUpdate:
+   maxSurge: 1
+   maxUnavailable: 0
+
+imageCredentials:
+  pullSecret:
+  emsNotificationCollector:
+    repoPath:
+    registry:
+      imagePullPolicy:
+      # overrides global registry url
+      url:
+    #- Secret must be manually created in the namespace, no default value
+    # pullSecret: REPO_SECRET
+  pgInitContainer:
+    repoPath:
+    registry:
+      imagePullPolicy:
+      url:
+
+images:
+  emsNotificationCollector:
+    name:
+    tag:
+    pullPolicy:
+  pgInitContainer:
+    name: sles-pg10
+    tag: 3.16.0-22
+    repoPath: proj-am/sles
+    pullPolicy:
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+labels: {}
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+annotations: {}
+
+# Log level settings. Possible values ERROR, WARN, INFO, DEBUG, TRACE
+log:
+  logLevel: INFO
+  kafkaLogLevel: ERROR
+  emsncLogLevel: DEBUG
+
+service:
+  type: ClusterIP
+  port: 8080    # Changed from 80 to 8080 and spring application is hosted on 8080
+  endpoints:
+    chassisapi:
+      tls:
+        enforced: required
+        verifyClientCertificate: required
+
+ingress:
+  enabled: false
+  ingressClass: OAM-IngressClass
+  # TODO: Please add in appropriate details while enabling the ingress
+  ingressClass:
+
+  hosts:
+    - host: chart-example.local
+      paths: [/]
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+eric-pm-server:
+  rbac:
+    appMonitoring:
+      enabled: true
+
+prometheus:
+  path: /actuator/prometheus
+  scrape: true
+
+resources:
+  ems-notification-collector:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+      ephemeral-storage: 200Mi
+    limits:
+      memory: 2Gi
+      cpu: 500m
+      ephemeral-storage: 1Gi
+  create-db-schema:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+      ephemeral-storage: 100Mi
+    limits:
+      memory: 2Gi
+      cpu: 500m
+      ephemeral-storage: 100Mi
+
+autoScaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+topologySpreadConstraints: []
+
+## affinity.podAntiAffinity , valid value are "soft" or "hard".
+affinity:
+  podAntiAffinity: "soft"
+
+db:
+  host: eric-oss-common-postgres
+  dbName: emsnc_db
+  port: 5432
+  creationTime: 10
+  secret: eric-eo-database-pg-secret
+
+connectedSystems:
+  host: eric-eo-subsystem-management
+  port: 8080
+
+probe:
+  startup:
+    initialDelaySeconds: 10 # 10 sec
+    periodSeconds: 10 # 10 sec
+    timeoutSeconds: 2 # 2 sec
+    failureThreshold: 17 # 2 min 50 sec
+    successThreshold: 1
+  liveness:
+    initialDelaySeconds: 200 # 200 sec because more time needed to startup health check endpoint if kafka is not running yet.
+    periodSeconds: 30 # 30 sec
+    timeoutSeconds: 10 # 10 sec
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 10 # 1.5 min
+    failureThreshold: 3
+    timeoutSeconds: 10 # 10 sec
+    periodSeconds: 30 # 30 sec
+
+kafkaConfig:
+  emsncInternalKafka:
+    host: eric-data-message-bus-kf
+    port: 9092
+    topicCount: 15
+    producerIsolation: "TRANSACTIONAL"
+    sendTimeout: 5000
+    partitionCount: 4
+    replicationFactor: 2
+    concurrencyPerTopic: 2
+    consumerThreadPriority: 3
+  dmaapKafka:
+    host: eric-data-message-bus-kf
+    port: 9092
+    topic: "dmaap-result-topic"
+    producerIsolation: "TRANSACTIONAL"
+    sendTimeout: 5000
+    partitionCount: 4
+    replicationFactor: 2
+
+subscriptions:
+  neTypes: "RadioNode,Router6675"
+
+timing:
+  connectedSystemsPollingFrequency: "2_MIN"
+  enmPollingFrequency: "30_SEC"
+  enmPollingOffset: 5
+  schedulingThreadCount: 10
+  schedulingThreadPriority: 5

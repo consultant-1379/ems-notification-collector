@@ -1,0 +1,52 @@
+{
+  "id": "VYtmWHsBXz6zvumNaSga",
+  "eventDetectionTimestamp": "2021-08-18T09:35:08.000Z",
+  "eventRecordTimestamp": "2021-08-18T09:35:11.714Z",
+  "targetName": "LTE96dg2ERBS00021",
+  "moClass": "UtranCellRelation",
+  "modelNamespace": "Lrat",
+  "modelVersion": "5.140.0",
+  "moFDN": "SubNetwork=Europe,SubNetwork=Ireland,SubNetwork=NETSimW,ManagedElement=LTE96dg2ERBS00021,ENodeBFunction=1,EUtranCellFDD=LTE96dg2ERBS00021-2,UtranFreqRelation=4,UtranCellRelation=CMSYNC01-0818092409122241",
+  "operationType": "CREATE",
+  "newAttributeValues": [
+    {
+      "isHoAllowed": "true"
+    },
+    {
+      "timeOfCreation": ""
+    },
+    {
+      "lbCovIndicated": "false"
+    },
+    {
+      "loadBalancing": "NOT_ALLOWED"
+    },
+    {
+      "timeOfLastModification": ""
+    },
+    {
+      "externalUtranCellFDDRef": "SubNetwork=Europe,SubNetwork=Ireland,SubNetwork=NETSimW,ManagedElement=LTE96dg2ERBS00021,ENodeBFunction=1,UtraNetwork=1,UtranFrequency=4,ExternalUtranCellFDD=20021"
+    },
+    {
+      "createdBy": "OPERATOR"
+    },
+    {
+      "isRemoveAllowed": "false"
+    },
+    {
+      "lastModification": "ANR_MODIFICATION"
+    },
+    {
+      "lbBnrAllowed": "true"
+    },
+    {
+      "mobilityStatus": {
+        "reason": "",
+        "available": "true"
+      }
+    },
+    {
+      "coverageIndicator": "NONE"
+    }
+  ]
+}

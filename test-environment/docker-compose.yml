@@ -1,0 +1,137 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+version: '3.1'
+services:
+  quartz-db:
+    image: postgres:10.16
+    environment:
+      POSTGRES_USER: quartz-node
+      POSTGRES_DB: emsnc_db
+      POSTGRES_PASSWORD: quartz-pg-pass
+    ports:
+      - "5432:5432"
+    networks:
+      - emsnc-test-network
+
+  emsnc-zookeeper:
+    image: 'bitnami/zookeeper:latest'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - emsnc-test-network
+
+  emsnc-kafka:
+    image: 'bitnami/kafka:latest'
+    ports:
+      - '9092:9092'
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=emsnc-zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,HOST:PLAINTEXT
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:19092,HOST://0.0.0.0:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://emsnc-kafka:19092,HOST://localhost:9092
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+    depends_on:
+      - emsnc-zookeeper
+    networks:
+      - emsnc-test-network
+
+  dmaap-zookeeper:
+    image: 'bitnami/zookeeper:latest'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - emsnc-test-network
+
+  dmaap-kafka:
+    image: 'bitnami/kafka:latest'
+    ports:
+      - '9093:9093'
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=dmaap-zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,HOST:PLAINTEXT
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:19093,HOST://0.0.0.0:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://dmaap-kafka:19093,HOST://localhost:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+    depends_on:
+      - dmaap-zookeeper
+    networks:
+      - emsnc-test-network
+
+  connected-systems:
+    image: armdocker.rnd.ericsson.se/proj-orchestration-so/eric-eo-subsystem-management:2.0.1-171
+    ports:
+      - 9500:8080
+    environment:
+      SUBSYSTEMS_DB_HOST: quartz-db
+      SUBSYSTEMS_DB_PORT: 5432
+      POSTGRES_PASSWORD: quartz-pg-pass
+      POSTGRES_USER: quartz-node
+    depends_on:
+      - quartz-db
+    networks:
+      - emsnc-test-network
+
+  ems-notification-collector:
+    image: armdocker.rnd.ericsson.se/proj-eric-oss-dev/eric-oss-adc-ems-notification-collector:latest
+    environment:
+      - EMSNC_KAFKA_HOST=emsnc-kafka
+      - EMSNC_KAFKA_PORT=19092
+      - DMAAP_KAFKA_HOST=dmaap-kafka
+      - DMAAP_KAFKA_PORT=19093
+      - DB_HOST=quartz-db
+      - DB_USERNAME=quartz-node
+      - DB_PASSWORD=quartz-pg-pass
+      - CONNECTED_SYSTEMS_HOST=connected-systems
+      - CONNECTED_SYSTEMS_PORT=8080
+      - ENM_POLLING_FREQUENCY=10_SEC
+      - CONNECTED_SYSTEMS_POLLING_FREQUENCY=20_SEC
+      - SUBSCRIPTION_NE_TYPES=RadioNode,Router6675
+      - ROOT_LOG_LEVEL=INFO
+      - EMSNC_LOG_LEVEL=INFO
+      - KAFKA_LOG_LEVEL=ERROR
+    depends_on:
+      - emsnc-kafka
+      - dmaap-kafka
+      - quartz-db
+      - connected-systems
+    networks:
+      - emsnc-test-network
+
+  emsnc-context-simulator:
+    image: armdocker.rnd.ericsson.se/proj-eric-oss-dev/eric-oss-adc-ems-notification-collector:simulator
+    ports:
+      - 8080:8080 # web CLI interface
+      - 8281:8281 # ENM 1
+      - 8282:8282 # ENM 2
+      - 8280:8280 # Connected Systems
+    environment:
+      - ENM_HOST=emsnc-context-simulator
+      - KAFKA_BOOTSTRAP_SERVERS=dmaap-kafka:19093
+      - KAFKA_TOPIC=dmaap-result-topic
+      - CS_HOST=connected-systems
+      - CS_PORT=8080
+    depends_on:
+      - connected-systems
+    networks:
+      - emsnc-test-network
+
+networks:
+  emsnc-test-network:

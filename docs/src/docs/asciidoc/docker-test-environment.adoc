@@ -1,0 +1,120 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+= Running EMS-N-C with Docker
+include::_fragments/parameters.adoc[]
+
+== Supported environment parameters:
+include::_fragments/image-parameters-fragment.adoc[]
+
+== Docker-compose based test environment
+An example stack is located in the `test-environment` directory. To use have `dockerd` and `docker-compose` available on your host machine. The dependency containers use docker volumes for persistent data, to clean up, stop the containers and use:
+
+`docker container prune -f && docker volume prune -f`
+
+*Note:* this command deletes all not running containers and all their currently used persistent volumes, *use only if there is no valuable data in stopped containers' volumes*.
+
+=== Running EMS-N-C as a runnable JAR
+- Start the PostgreSQL and Kafka containers using `docker-compose up emsnc-zookeeper emsnc-kafka dmaap-zookeeper dmaap-kafka quartz-db connected-systems`
+
+*Note:* this does not start the EMS-N-C container, it can be started without the overhead of rebuilding the container as `java -jar target/ems-notification-collector-app-<version>-SNAPSHOT.jar`
+
+*Note:* `connected-systems` has hard coded image version because it does not build with latest tag. Occassional upgrade might be needed on the image version. See at https://arm.seli.gic.ericsson.se/ui/packages/docker:%2F%2Fproj-orchestration-so%2Feric-eo-subsystem-management
+
+=== Running EMS-N-C as a Docker container
+*Prerequisite:* build an EMS-N-C Docker image with `bob image`. The image will be tagged locally as `armdocker.rnd.ericsson.se/proj-eric-oss-dev/eric-oss-adc-ems-notification-collector:latest`.
+
+Simply use `docker compose up`, or start the dependency containers, and use `docker compose up ems-notification-collector`
+
+To run EMS-N-C with several instances, use
+`docker-compose up --scale ems-notification-collector=3 ems-notification-collector`
+
+== Analyzing Kafka usage with `kafkacat`
+The `kafkacat` tool can be installed locally on the host, and since the Kafka brokers are both exposed externally, and to the Docker network, the `kafkacat` can connect and monitor what is going on in the test environment's kafka clusters. The _internal Kafka_ is exposed at port `9092`, the _DMaaP Kafka_ is exposed at port `9093`.
+
+. Examples using kafkacat
+....
+# List topics on the internal Kafka
+kafkacat -C -b localhost:9092 -L
+
+# List topics on the DMaaP Kafka
+kafkacat -C -b localhost:9093 -L
+
+# list messages in a topic
+kafkacat -C -b localhost:9093 -t <topic name>
+....
+
+== Context simulator
+*Note:* can not be used together with the real Connected Systems
+
+The simulator is a Docker image which can be built at the `integration-test` module, and is capable of simulating _ENM_ instances which continuously generate events and a _Connected Systems_ instance, which is aware of the simulated ENMs. By default, everything is enabled, but the simulation's Java objects can be manipulated with the included Groovy shell. See classes `SimulatedEnm` and `SimulatedConnectedSystems` for usage.
+
+=== Building the simulator
+* A default `mvn` build creates the shaded jar, but does not invoke docker build. The resulting `standalone-simulator.jar` can be used as a runnable `jar`.
+* Can be built with `mvn` using the `mvn package docker:build` command in the `integration-test` module. *Note*: does not need volume mounts, compatible with Docker Desktop
+* Can be built with `bob simulator-image-build` on the CI environment
+
+=== Accessing the Groovy shell
+The simulator accepts Groovy commands from standard input, if started with the runnable `jar` on the host machine.
+
+In a Docker context, a web interface is exported using `gotty`, expose its port (`8080`) and open with a web browser.
+Alternatively, it is possible to start a `bash` in the running container and attach to the `tmux` session using `tmux attach-session -t groovy-shell`
+
+== How to use Connected systems
+*Note:* can not be used together with the simulator container
+
+*Note:* `connected-systems` has hard coded image version because it does not build with latest tag. Occassional upgrade might be needed on the image version. See at https://arm.seli.gic.ericsson.se/ui/packages/docker:%2F%2Fproj-orchestration-so%2Feric-eo-subsystem-management
+
+*Creating example ENM with curl*
+
+....
+curl --location --request POST 'localhost:9500/subsystem-manager/v1/subsystems' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "name": "ecm3",
+    "subsystemType": {
+        "type": "DomainManager"
+    },
+    "adapterLink": "eric-eo-ecm-adapter",
+    "vendor": "Ericsson",
+    "url": "http://eric-eo-ecm-stub/",
+    "connectionProperties": [
+        {
+            "name": "connection1",
+            "tenant": "EcmTenant",
+            "username": "ecmadmin",
+            "password": "CloudAdmin123",
+            "encryptedKeys": [
+                "password"
+            ]
+        }
+    ]
+}'
+....
+
+*Listing ENMs with curl*
+
+ENM servers always identify with DomainManager value for subsystemType.
+
+(filters={"subsystemType":"DomainManager"})
+
+....
+curl --location --request GET 'localhost:9500/subsystem-manager/v1/subsystems?filters=%7B%22subsystemType%22%3A%22DomainManager%22%7D'
+....
+
+== References
+* https://docs.docker.com/compose/reference/up/
+* https://hub.docker.com/r/bitnami/kafka/
+* https://hub.docker.com/r/bitnami/zookeeper

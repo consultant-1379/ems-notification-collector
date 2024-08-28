@@ -1,0 +1,118 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+components:
+  schemas:
+    ConnectionProperties:
+      description: The model representation of the connection properties.
+      type: object
+      required:
+        - username
+        - password
+        - encryptedKeys
+      properties:
+        username:
+          type: string
+          description: Username
+        password:
+          type: string
+          description: Password
+        encryptedKeys:
+          type: array
+          description: The selected property to be encrypted
+          items:
+            type: string
+        subsystem:
+          $ref: '#/components/schemas/Subsystem'
+          description: The subsystem
+    Property:
+      description: The model representation of the generic properties info.
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: The identifier of the connection property
+        connectionProperties:
+          $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+          description: The Connection property of the property
+        key:
+          type: string
+          description: The key of the connection property
+        value:
+          type: string
+          description: The value of the connection property
+        encrypted:
+          type: boolean
+          description: The flag to indicate if the connection property is encrypted
+    SubsystemType:
+      description: The model representation of Subsystem Type.
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: The identifier of the subsystem type
+        type:
+          type: string
+          description: The type of the subsystem
+        category:
+          type: string
+          enum:
+            - Primary
+            - Custom
+          description: The category of the subsystem type
+    Subsystem:
+      type: object
+      description: The model representation of the subsystem.
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: The identifier of the subsystem
+        connectionProperties:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConnectionProperties'
+          description: The list of connection properties of the subsystem
+        subsystemType:
+          $ref: '#/components/schemas/SubsystemType'
+          description: The subsystem type
+        name:
+          type: string
+          description: The name of the subsystem
+        healthCheckTime:
+          type: string
+          description: The health check time of the subsystem
+        url:
+          type: string
+          description: The url of the subsystem
+        operationalState:
+          type: string
+          enum:
+            - REACHABLE
+            - UNREACHABLE
+          description: The operational state of the subsystem
+        subsystemTypeId:
+          type: integer
+          format: int64
+          description: The identifier of the subsystem type
+        vendor:
+          type: string
+          description: The name of the subsystem vendor
+        adapterLink:
+          type: string
+          description: The type of the adapter

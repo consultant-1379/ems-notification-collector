@@ -1,0 +1,141 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+= YANG Conversion
+include::../_fragments/parameters.adoc[]
+
+== Requirement
+
+After {service_name} pulls CM Events from the ENM Events NBI, it is required to transform that data into a YANG compliant format before writing them into a DMaaP topic, so that interested RAD Applications can consume them.
+
+== Conversion
+
+=== Create event
+IMPORTANT: Fields that are irrelevant for YANG conversion (e.g. `eventRecordTimestamp`, `modelVersion`, etc.) are not shown.
+
+.Example CREATE CM event (source)
+
+[source,json]
+----
+include::../../../../../docs/src/main/resources/cm-create-event.json[]
+----
+
+.Example CREATE event after YANG conversion (assuming moClass is of YANG type _list_)
+
+[source,json]
+----
+include::../../../../../docs/target/converted-events/list-type-create.json[]
+----
+
+NOTE: The field with `moClass` name under `value` is omitted.
+
+.Example CREATE event after YANG conversion (assuming `moClass` is of YANG type `container`)
+
+[source,json]
+----
+include::../../../../../docs/target/converted-events/container-type-create.json[]
+----
+
+'''
+
+=== Update event
+IMPORTANT: Fields that are irrelevant for YANG conversion (e.g. :eventRecordTimestamp, modelVersion, etc.) are not shown.
+
+.Example UPDATE CM event (source)
+
+[source,json]
+----
+include::../../../../../docs/src/main/resources/cm-update-event.json[]
+----
+
+NOTE: `id` field omitted
+
+.Example UPDATE event after YANG conversion (assuming `moClass` is of YANG type _list_)
+
+[source,json]
+----
+include::../../../../../docs/target/converted-events/list-type-update.json[]
+----
+
+
+NOTE: Both the `id` field, and the field with `moClass` name under `value` is omitted.
+
+.Example UPDATE event after YANG conversion (assuming `moClass` is of YANG type _container_)
+
+[source,json]
+----
+include::../../../../../docs/target/converted-events/container-type-update.json[]
+----
+
+'''
+
+=== Detailed explanation
+
+|===
+
+|*YANG attributes* |*Note*
+
+|`cmhandle`
+|MD5 hash of the formatted string `%1-%2-%3`, where: +
+`%1` is the string "EricssonENMAdapter", +
+`%2` is the name of the ENM instance, and +
+`%3` is the shortened moFDN of the CM Event, only up to the first `ManagedElement=xxx` part (inclusive).
+
+|`patch-id`
+|Same as the `id` attribute of the CM Event.
+
+|`edit-id`
+|The identifier of the `moClass` appended to the `cmhandle`.
+
+|`operation`
+a|`create` in case the operationType of the CM Event is `CREATE` +
+`replace` in case of `UPDATE` +
+`delete` in case of `DELETE`
+
+IMPORTANT: Conversion of events with `operationType` `DELETE` is not implemented yet.
+
+|`target`
+a|moFDN of the CM Event, only from the last occurrence of a `ManagedElement=xxx` part, essentially dropping the prefix of the FDN.
+
+The comma separators of the original moFDN are replaced with `/` characters.
+
+In case the event belongs to a managed object with a container type in its YANG module, the `/attribute` string is appended to the end of the `target` field.
+
+IMPORTANT: If the `moFDN` does not have a ManagedElement part in its path, the proposal is to discard such events, but this is not implemented yet.
+
+l|
+...
+"value": {
+  "EUtranCellFDD": [
+    {
+...
+a|If the `moClass` (`EUtranCellFDD` in this case) is a list in the yang module, the resulting element in the YANG notification will also be of type `list` ([ ]).
+
+NOTE: This `moClass` is not present in the YANG notification in case it is of type `container`.
+
+IMPORTANT: There's a requirement to add the name of the YANG module to the name of the `moClass` as a prefix. For now there is a proposal for a new model service that will provide these prefixes dynamically.
+
+|`id`
+a|Same as the identifier at the end of the `moFDN`.
+
+NOTE: Not present in _replace_ notifications.
+
+NOTE: Until the model service is implemented, the `id` attribute gets hard-coded prefixes based on the following. If the node type is `vDU`, `vCU-CP`, `vCU-UP` or `vRM` then the `_3gpp-common-top:` prefix will be added. In case of node type `RadioNode`, `ericsson-enm-com-top:` will be the prefix.
+
+
+|`attributes`
+|Taken from the `newAttributeValues` section of the CM Event.
+
+|===

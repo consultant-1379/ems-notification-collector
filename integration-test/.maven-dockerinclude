@@ -1,0 +1,3 @@
+target/standalone-simulator.jar
+entrypoint.sh
+

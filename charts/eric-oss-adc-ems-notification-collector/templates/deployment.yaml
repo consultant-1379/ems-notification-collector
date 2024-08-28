@@ -1,0 +1,272 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+---
+{{- $g := fromJson (include "eric-oss-adc-ems-notification-collector.global" .) -}}
+apiVersion: v1
+data:
+  application.properties: |
+    management.endpoint.metrics.enabled=true
+    management.endpoints.web.exposure.include=*
+    management.endpoint.prometheus.enabled=true
+    management.metrics.export.prometheus.enabled=true
+    management.metrics.web.server.auto-time-requests=true
+kind: ConfigMap
+metadata:
+  name: {{ include "eric-oss-adc-ems-notification-collector.name" . }}-configmap
+  labels:
+{{ include "eric-oss-adc-ems-notification-collector.labels" . | indent 4 }}
+  annotations:
+{{ include "eric-oss-adc-ems-notification-collector.product-info" . | indent 4 }}
+{{- include "eric-oss-adc-ems-notification-collector.config-annotations" . | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "eric-oss-adc-ems-notification-collector.fullname" . }}
+  labels:
+    app: {{ template "eric-oss-adc-ems-notification-collector.name" . }}
+    {{- include "eric-oss-adc-ems-notification-collector.labels" . | nindent 4 }}
+  annotations:
+{{ include "eric-oss-adc-ems-notification-collector.product-info" . | indent 4 }}
+{{- include "eric-oss-adc-ems-notification-collector.config-annotations" . | indent 4 }}
+spec:
+{{- if not .Values.autoScaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "eric-oss-adc-ems-notification-collector.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    type: {{ .Values.updateStrategy.type | quote }}
+    {{- if and (eq .Values.updateStrategy.type "RollingUpdate") .Values.updateStrategy.rollingUpdate }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.updateStrategy.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.updateStrategy.rollingUpdate.maxSurge }}
+    {{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "eric-oss-adc-ems-notification-collector.name" . }}
+        app.kubernetes.io/name: {{ include "eric-oss-adc-ems-notification-collector.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/version: {{ include "eric-oss-adc-ems-notification-collector.version" . }}
+      annotations:
+        prometheus.io/path: {{ .Values.prometheus.path | quote }}
+        prometheus.io/port: {{ .Values.service.port | quote }}
+        prometheus.io/scrape: {{ .Values.prometheus.scrape | quote }}
+{{ include "eric-oss-adc-ems-notification-collector.product-info" . | indent 8 }}
+{{- include "eric-oss-adc-ems-notification-collector.config-annotations" . | indent 8 }}
+    spec:
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if include "eric-oss-adc-ems-notification-collector.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-oss-adc-ems-notification-collector.pullSecrets" . }}
+      {{- end }}
+      serviceAccountName: {{ include "eric-oss-adc-ems-notification-collector.serviceAccountName" . }}
+      securityContext:
+        fsGroup: {{ include "eric-oss-adc-ems-notification-collector.fsGroup.coordinated" . }}
+      {{- if (or .Values.nodeSelector $g.nodeSelector) }}
+      nodeSelector: {{- include "eric-oss-adc-ems-notification-collector.nodeSelector" . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity: {{ include "eric-oss-adc-ems-notification-collector.podAntiAffinity" . | nindent 10 }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "eric-oss-adc-ems-notification-collector.name" . }}-configmap
+      initContainers:
+      - name: create-db-schema
+        {{- with index .Values "resources" "create-db-schema" }}
+        resources:
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        image: {{ template "eric-oss-adc-ems-notification-collector.reusedImagePath" . }}
+        imagePullPolicy: {{ template "eric-oss-adc-ems-notification-collector.pgInitContainer.registryImagePullPolicy" . }}
+        env:
+        - name: POSTGRES_HOST
+          value: {{ .Values.db.host }}.{{ .Release.Namespace }}
+        - name: POSTGRES_DB
+          value: {{ .Values.db.dbName | quote }}
+        - name: POSTGRES_PORT
+          value: {{ .Values.db.port | quote }}
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.secret }}
+              key: super-user
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.secret }}
+              key: super-pwd
+        - name: STARTUP_WAIT
+          value: {{ .Values.db.creationTime | quote }}
+        - name: TZ
+          value: "{{ template "eric-oss-adc-ems-notification-collector.timezone" . }}"
+        securityContext:
+          allowPrivilegeEscalation: true
+          runAsNonRoot: false
+          runAsUser: 0
+      containers:
+      - name: ems-notification-collector
+        {{- with index .Values "resources" "ems-notification-collector" }}
+        resources:
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        image: {{ template "eric-oss-adc-ems-notification-collector.mainImagePath" . }}
+        imagePullPolicy: {{ template "eric-oss-adc-ems-notification-collector.registryImagePullPolicy" . }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - all
+        volumeMounts:
+          - name: config-volume
+            mountPath: /config
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+        startupProbe:
+          initialDelaySeconds: {{ .Values.probe.startup.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probe.startup.periodSeconds }}
+          timeoutSeconds: {{ .Values.probe.startup.timeoutSeconds }}
+          successThreshold: {{ .Values.probe.startup.successThreshold }}
+          failureThreshold: {{ .Values.probe.startup.failureThreshold }}
+          tcpSocket:
+            host:
+            port: 8080
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: {{ .Values.probe.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probe.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.probe.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.probe.liveness.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: {{ .Values.probe.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probe.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.probe.readiness.timeoutSeconds }}
+        env:
+        - name: ROOT_LOG_LEVEL
+          value: {{ .Values.log.logLevel }}
+        - name: EMSNC_LOG_LEVEL
+          value: {{ .Values.log.emsncLogLevel }}
+        - name: KAFKA_LOG_LEVEL
+          value: {{ .Values.log.kafkaLogLevel }}
+        - name: TZ
+          value: "{{ template "eric-oss-adc-ems-notification-collector.timezone" . }}"
+        - name: DB_PORT
+          value: "{{ .Values.db.port }}"
+        - name: DB_HOST
+          value: {{ .Values.db.host }}
+        - name: DB_NAME
+          value: {{ .Values.db.dbName }}
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.secret }}
+              key: custom-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.secret }}
+              key: custom-pwd
+        - name: EMSNC_KAFKA_HOST
+          value: {{ .Values.kafkaConfig.emsncInternalKafka.host }}
+        - name: EMSNC_KAFKA_PORT
+          value: "{{ .Values.kafkaConfig.emsncInternalKafka.port }}"
+        - name: EMSNC_KAFKA_TOPIC_COUNT
+          value: "{{ .Values.kafkaConfig.emsncInternalKafka.topicCount }}"
+        - name: EMSNC_KAFKA_PRODUCER_ISOLATION
+          value: {{ .Values.kafkaConfig.emsncInternalKafka.producerIsolation }}
+        - name: EMSNC_KAFKA_SEND_TIMEOUT
+          value: "{{ .Values.kafkaConfig.emsncInternalKafka.sendTimeout }}"
+        - name: EMSNC_KAFKA_PARTITION_COUNT
+          value: "{{ .Values.kafkaConfig.emsncInternalKafka.partitionCount }}"
+        - name: EMSNC_KAFKA_REPLICATION_FACTOR
+          value: "{{ .Values.kafkaConfig.emsncInternalKafka.replicationFactor }}"
+        - name: EMSNC_KAFKA_CONCURRENCY_PER_TOPIC
+          value: "{{ .Values.kafkaConfig.emsncInternalKafka.concurrencyPerTopic }}"
+        - name: EMSNC_KAFKA_CONSUMER_THREAD_PRIORITY
+          value: "{{ .Values.kafkaConfig.emsncInternalKafka.consumerThreadPriority }}"
+        - name: DMAAP_KAFKA_HOST
+          value: {{ .Values.kafkaConfig.dmaapKafka.host }}
+        - name: DMAAP_KAFKA_PORT
+          value: "{{ .Values.kafkaConfig.dmaapKafka.port }}"
+        - name: DMAAP_KAFKA_TOPIC
+          value: {{ .Values.kafkaConfig.dmaapKafka.topic }}
+        - name: DMAAP_KAFKA_PRODUCER_ISOLATION
+          value: {{ .Values.kafkaConfig.dmaapKafka.producerIsolation }}
+        - name: DMAAP_KAFKA_SEND_TIMEOUT
+          value: "{{ .Values.kafkaConfig.dmaapKafka.sendTimeout }}"
+        - name: DMAAP_KAFKA_PARTITION_COUNT
+          value: "{{ .Values.kafkaConfig.dmaapKafka.partitionCount }}"
+        - name: DMAAP_KAFKA_REPLICATION_FACTOR
+          value: "{{ .Values.kafkaConfig.dmaapKafka.replicationFactor }}"
+        - name: CONNECTED_SYSTEMS_HOST
+          value: {{ .Values.connectedSystems.host }}
+        - name: CONNECTED_SYSTEMS_PORT
+          value: {{ .Values.connectedSystems.port | quote }}
+        - name: SUBSCRIPTION_NE_TYPES
+          value: {{ .Values.subscriptions.neTypes }}
+        - name: CONNECTED_SYSTEMS_POLLING_FREQUENCY
+          value: {{ .Values.timing.connectedSystemsPollingFrequency }}
+        - name: ENM_POLLING_FREQUENCY
+          value: {{ .Values.timing.enmPollingFrequency }}
+        - name: ENM_POLLING_OFFSET
+          value: "{{ .Values.timing.enmPollingOffset }}"
+        - name: SCHEDULING_THREAD_COUNT
+          value: "{{ .Values.timing.schedulingThreadCount }}"
+        - name: SCHEDULING_THREAD_PRIORITY
+          value: "{{ .Values.timing.schedulingThreadPriority }}"
+
+    {{- if .Values.global }}
+      {{- if .Values.global.security }}
+        {{- if .Values.global.security.tls }}
+          {{- if .Values.global.security.tls.enabled }}
+        - name: CONNECT_MODE
+          value: "tls"
+          {{- if (eq .Values.service.endpoints.chassisapi.tls.enforced "required") }}
+        - name: TLS_MODE
+          value: "only_tls"
+          {{- if (eq .Values.service.endpoints.chassisapi.tls.verifyClientCertificate "required") }}
+        - name: TLS_CA
+          value: "ca_path"
+          {{- end }}
+          {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+      {{- with index .Values "resources" "ems-notification-collector" }}
+        resources:
+          {{- toYaml . | nindent 12 }}
+      {{- end }}

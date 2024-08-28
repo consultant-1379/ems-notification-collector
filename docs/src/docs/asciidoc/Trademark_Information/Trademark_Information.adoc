@@ -1,0 +1,36 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+// Read in attributes
+include::../_fragments/parameters.adoc[]
+
+{service_name} Trademark Information
+====================================
+:author: <Input author name>
+:doc-name: LIST
+:doc-no: TBD
+:revnumber: A
+:revdate: {sys: date +%Y-%m-%d}
+:approved-by-name: <Input approved by name>
+:approved-by-department: <Input department name>
+
+== Trademarks Used in Library
+
+The trademarks used in this library, and their respective owners, are as follows:
+
+* *Artifactory* is the trademark or registered trademark of JFrog Ltd.
+* *Docker* is the trademark or registered trademark of Docker, Inc.
+* *Ericsson* is the trademark or registered trademark of Telefonaktiebolaget LM Ericsson.
+* *Kubernetes* is the trademark or registered trademark of The Linux Foundation.

@@ -1,0 +1,151 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+openapi: 3.0.0
+info:
+  title: Subsystem Users Service
+  description: |
+    Subsystem User service allows to configure the subsystem users associated with a specific instance of a subsystem and connection properties.
+    An identifier is given by this service to identify uniquely the subsystem user being created.
+    Methods for creation and deletion of subsystem users are provided
+  contact:
+    name: Service Orchestrator Autobots Team
+    url: 'https://confluence-oss.seli.wh.rnd.internal.ericsson.com/display/ESO/Autobots'
+    email: PDLDOAUTOB@pdl.internal.ericsson.com
+  license:
+    name: "COPYRIGHT Ericsson 2021"
+    url: "https://www.ericsson.com/en/legal"
+  termsOfService: "https://www.ericsson.com/en/legal"
+  version: 0.0.1
+
+tags:
+  - name: Create and Update Subsystem Users
+  - name: Delete Subsystem Users
+
+servers:
+  - url: 'http://localhost/subsystem-manager/{basePath}'
+    variables:
+      hostame:
+        default: eric-eo-subsystem-management
+      basePath:
+        default: v1
+
+paths:
+  /subsystems/{subsystemId}/connection-properties/{connectionPropertiesId}/subsystem-users:
+    post:
+      tags:
+        - Create and Update Subsystem Users
+      summary: To create new subsystem users
+      description: Creates a new subsystem user for given subystem and connection property.
+      operationId: postUserByConnPropId
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+        - name: connectionPropertiesId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The connection properties identifier
+      responses:
+        '201':
+          description: |
+            Created
+            The subsystem user has been created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubsystemUser'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+  /subsystems/{subsystemId}/connection-properties/{connectionPropertiesId}/subsystem-users/{subsystemUserId}:
+    delete:
+      tags:
+        - Delete Subsystem Users
+      summary: Delete a subsystem user
+      description: |
+        Deletes the subsystem user associated to given subsystem and connection properties. The subsystem user is identified by the identifier being
+        allocated as a result of the creation operation.
+      operationId: deleteUserByConnPropId
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The subsystem identifier
+        - name: connectionPropertiesId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The connection properties identifier
+        - name: subsystemUserId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The subsystem user identifier
+      responses:
+        '204':
+          $ref: 'responses.yaml#/components/responses/NoContent'
+        '400':
+          $ref: 'responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: 'responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: 'responses.yaml#/components/responses/NotFound'
+        '503':
+          $ref: 'responses.yaml#/components/responses/ServiceUnavailable'
+
+components:
+  schemas:
+    SubsystemUser:
+      description: This is the model representation of the subsystem user.
+      type: object
+      properties:
+        required:
+          - id
+          - connectionProperties
+          - connectionPropsId
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+          description: The identifier of the subsystem user
+        connectionProperties:
+          $ref: 'common-components.yaml#/components/schemas/ConnectionProperties'
+          description: The connection property info
+        connectionPropsId:
+          type: integer
+          format: int64
+          readOnly: true
+          description: The identifier of the connection properties

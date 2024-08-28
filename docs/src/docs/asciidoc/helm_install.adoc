@@ -1,0 +1,300 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+
+= Installing EMSNC to K8S cluster with helm
+
+This guide will help you using attached helper shell scripts to deploy EMSNC and dependencies to a K8S cluster.
+Using these scripts, the following can be performed:
+
+- Deploy EMSNC's dependencies (as listed below)
+- Deploy EMSNC
+- Port forward Connected System's service to host to expose API for ENM registration
+
+
+== Prerequisites
+
+- `kubectl` and `helm` installed and configured for your cluster. See [1] reference for help
+
+== Install
+
+*Warning*: install script will purge the selected namespace.
+
+=== Execution Steps
+
+==== Build your repo and chart with bob
+
+[source,bash]
+----
+bob init-dev
+bob build
+bob image
+bob package-local
+----
+
+==== Go to the helm scripts directory
+[source,bash]
+----
+cd ./test-environment/helm_scripts/
+----
+
+==== Edit install_config file
+
+Set K8S_NAMESPACE to your own. Keep others unchanged. Example file:
+[source,bash]
+----
+export PROJECT_NAME=proj-cerberus
+export DOCKER_USERNAME="testautoci"
+export DOCKER_PASSWORD="AKCp8jQ8dKCaAMx8rEjQceERuu8inr8G7Dzvhyrq3JSTjvo6nwHDAZpTD5uXQtgTeDXh3JFbZ"
+export HELM_REPO_USER="testautoci"
+export HELM_REPO_PASS='&SmgE!!RJ87joL7T'
+export K8S_NAMESPACE="emolger-test"
+export DOCUMENT_DB_VERSION="5.5.0+50"
+export DATA_COORDINATOR_VERSION="1.14.0+37"
+export MESSAGE_BUS_KF_VERSION="1.14.0+44"
+export CONNECTED_SYSTEMS_VERSION="2.0.1-170"
+export EMSNC_VERSION="1.0.83-1"
+----
+
+Note: you can set a released EMSNC version in EMSNC_VERSION.
+
+==== Pull dependencies from chart repo
+
+Executing the `pull_dependency_charts.sh` script will add helm repositories and pull dependencies:
+
+* ADP Messagebus KF
+* ADP Datacoordinator ZK
+* Connected Systems (Subsystem Manager)
+* ADP Document database PG
+* EMSNC released version
+
+[source,bash]
+----
+./pull_dependency_charts.sh
+Adding SO chart repo
+Adding ADP chart repo
+Connected Systems 2.0.1-170 chart pull successful.
+ADP Document Database PG 5.5.0+50 chart pull successful.
+ADP Messagebus KF 1.14.0+44 chart pull successful.
+ADP Data Coordinator ZK 1.14.0+37 chart pull successful.
+EMSNC 1.0.83-1 chart pull successful.
+----
+
+==== Install script execution
+
+The script will ask you if you want to copy EMSNC chart from the bob build directory.
+If you select 'Yes' and no chart is found in bob build directory, the script will exit.
+If you select 'No', the version pulled by the `pull_dependency_charts.sh` script will be used.
+Otherwise, you copy your own version to charts directory (test-environment/helm_scripts/charts/eric-oss-adc-ems-notification-collector.tgz).
+
+
+Example output:
+[source,bash]
+----
+./install_emsnc.sh
+
+!!! Warning !!! This will delete the existing namespace for clean install.
+
+Continue (Y/N)? y
+
+Do you want to copy EMSNC chart from bob build dir (Y/N) ?y
+1.0.70
+../../.bob/eric-oss-adc-ems-notification-collector-internal/eric-oss-adc-ems-notification-collector-1.0.70-h048bdc5.dirty.tgz
+
+Copying: ../../.bob/eric-oss-adc-ems-notification-collector-internal/eric-oss-adc-ems-notification-collector-1.0.70-h048bdc5.dirty.tgz
+Ok, ./charts/eric-oss-adc-ems-notification-collector.tgz found.
+----
+
+=== Installation of EMSNC umbrella chart
+
+*Prerequisites*:
+for local test execution, you need to have kubectl, helm and kubeconfig ready.
+
+*_Umbrella chart_* is a small integration chart that contains EMSNC and it's dependencies and related configuration.
+The chart can be found in `test-environment/helm_scripts/emsnc_umbrella_chart` directory.
+The list of dependencies and their version is included in the `requirements.yaml` file.
+
+
+EMSNC version in the `requirements.yaml` is set to `__VERSION__` and artifactory url is set to `__HELM_CHART_REPO__` which can be either replaced manually to a valid released chart
+(ex 1.0.93-1), or updated with `bob helm-install-umbrella-chart:update-requirements-yaml` to use the version from current build.
+Note: this requires `bob init-dev build image package-local` to be executed, because it needs to upload your chart version and images to artifactory.
+Helm will download the referenced emsnc chart version from artifactory and kubernetes will download the image when deploying.
+
+Steps:
+
+* Update requirements.yaml manually as explained above if you want a custom version
+* Execute below commands:
+
+*Build EMSNC and package helm chart:*
+[source,bash]
+----
+bob clean
+bob init-dev
+bob build
+bob image
+bob package-local
+----
+
+*Update requirements yaml and install:*
+[source,bash]
+----
+# Udate chart version to current build
+bob helm-install-umbrella-chart:update-requirements-yaml
+
+# If not logged in already
+docker login armdocker.rnd.ericsson.se
+
+# This will add required helm repositories with functional user access.
+# Only need to execute this once.
+pull_dependency_charts.sh
+
+# This will install emsnc, dependencies and context-simulator
+install_emsnc_umbrella_chart.sh
+
+# For uninstall:
+uninstall_emsnc.sh
+----
+
+=== Verify your install
+[source,bash]
+----
+source ./install_config
+helm list -n ${K8S_NAMESPACE}
+NAME                        	NAMESPACE   	REVISION	UPDATED                                 	STATUS  	CHART                                           	APP VERSION
+context-simulator           	emolger-test	1       	2021-07-12 19:36:31.343714167 +0200 CEST	deployed	context-simulator-0.1.0                         	1.1.0
+eric-data-coordinator-zk    	emolger-test	1       	2021-07-12 19:32:13.634956027 +0200 CEST	deployed	eric-data-coordinator-zk-1.14.0+37
+eric-data-message-bus-kf    	emolger-test	1       	2021-07-12 19:32:34.643597437 +0200 CEST	deployed	eric-data-message-bus-kf-1.14.0+44
+eric-eo-subsystem-management	emolger-test	1       	2021-07-12 19:33:48.231368481 +0200 CEST	deployed	eric-eo-subsystem-management-2.0.1-170
+eric-oss-common-postgres    	emolger-test	1       	2021-07-12 19:33:14.61849046 +0200 CEST 	deployed	eric-data-document-database-pg-5.5.0+50
+eric-oss-ems-nc             	emolger-test	1       	2021-07-12 19:34:41.38480289 +0200 CEST 	deployed	eric-oss-adc-ems-notification-collector-1.0.83-1	1.0
+
+kubectl -n ${K8S_NAMESPACE} get pods
+NAME                                                       READY   STATUS    RESTARTS   AGE
+context-simulator-796c64c897-qxbld                         1/1     Running   0          14s
+eric-data-coordinator-zk-0                                 1/1     Running   0          4m33s
+eric-data-message-bus-kf-0                                 1/1     Running   0          4m11s
+eric-data-message-bus-kf-1                                 1/1     Running   0          4m11s
+eric-data-message-bus-kf-2                                 1/1     Running   0          4m11s
+eric-eo-subsystem-management-5fbcbf5f57-g8pph              1/1     Running   0          2m58s
+eric-oss-adc-ems-notification-collector-84f79998db-zwglf   1/1     Running   0          2m4s
+eric-oss-common-postgres-0                                 2/2     Running   0          3m25
+----
+
+== Register ENM in Connected Systems
+This section describes how to register a real ENM in Connected System.
+
+=== Execute port forward script
+This script finds Connected Systems pod and exposes it's service to a defined port (default 4014).
+The port forwarding will stay live while the script is running. Stop with CTRL+C.
+[source,bash]
+----
+./port_forward.sh
+Connected Systems pod name: eric-eo-subsystem-management-76685fdb48-nq44g
+Connected Systems service port: 8080
+Forwarding from 127.0.0.1:4014 -> 8080
+Forwarding from [::1]:4014 -> 8080
+Handling connection for 4014
+Handling connection for 4014
+----
+
+=== Register ENM
+Using the above port (default 4014), execute POST and GET request.
+[source,bash]
+----
+curl --location --request POST 'localhost:4014/subsystem-manager/v1/subsystems' \
+--header 'Content-Type: application/json' \
+--data '{
+    "name": "ecm",
+    "subsystemType": {
+        "type": "DomainManager"
+    },
+    "adapterLink": "eric-eo-ecm-adapter",
+    "vendor": "Ericsson",
+    "url": "https://ieatenm5439-6.athtem.eei.ericsson.se/",
+    "connectionProperties": [
+        {
+            "name": "connection1",
+            "tenant": "EcmTenant",
+            "username": "administrator",
+            "password": "TestPassw0rd",
+            "encryptedKeys": [
+                "password"
+            ]
+        }
+    ]
+}'
+----
+
+Verify registration
+[source,bash]
+----
+curl --silent --request GET 'localhost:4014/subsystem-manager/v1/subsystems' | jq
+[
+  {
+    "id": 2,
+    "subsystemTypeId": 1,
+    "name": "ecm",
+    "url": "https://ieatenm5439-6.athtem.eei.ericsson.se/",
+    "connectionProperties": [
+      {
+        "id": 3,
+        "subsystemId": 2,
+        "name": "connection1",
+        "tenant": "EcmTenant",
+        "username": "administrator",
+        "password": "TestPassw0rd",
+        "encryptedKeys": [
+          "password"
+        ],
+        "subsystemUsers": []
+      }
+    ],
+    "vendor": "Ericsson",
+    "subsystemType": {
+      "id": 1,
+      "type": "DomainManager",
+      "category": "Primary"
+    },
+    "adapterLink": "eric-eo-ecm-adapter"
+  }
+]
+----
+
+After this, you should be able to see EMSNC starting to poll events from the registered ENM.
+
+== Uninstall
+This will uninstall your deployed resources and remove the namespace.
+[source,bash]
+----
+./uninstall_emsnc.sh
+
+!!! Warning !!! This will uninstall EMSNC and delete the namespace.
+
+Continue (Y/N)? y
+
+release "context-simulator" uninstalled
+release "eric-data-coordinator-zk" uninstalled
+release "eric-data-message-bus-kf" uninstalled
+release "eric-eo-subsystem-management" uninstalled
+release "eric-oss-common-postgres" uninstalled
+release "eric-oss-ems-nc" uninstalled
+namespace "emolger-test" deleted
+----
+
+== References
+* [1 IDUN env setup help
+https://confluence-oss.seli.wh.rnd.internal.ericsson.com/pages/viewpage.action?spaceKey=ESO&title=IDUN+deployment
+* [2] ADP Document Database PG
+https://adp.ericsson.se/marketplace/document-database-pg/documentation/5.5.0/dpi/service-user-guide#deployment

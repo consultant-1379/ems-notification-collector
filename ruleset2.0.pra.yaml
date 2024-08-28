@@ -1,0 +1,323 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+modelVersion: 2.0
+docker-images:
+  # in ADP GS environment use the 'latest' tag, as testing may contain potentially
+  # unstable/not tested content
+  - adp-release-auto: armdocker.rnd.ericsson.se/sandbox/adp-staging/adp-cicd/bob-adp-release-auto:testing
+import:
+  common: common-properties.yaml
+properties:
+  # Original helm chart repository
+  - helm-chart-repo: https://arm.rnd.ki.sw.ericsson.se/artifactory/proj-adp-ref-app-drop-helm
+    # Microservice released helm chart repository
+  - helm-chart-released-repo: https://arm.rnd.ki.sw.ericsson.se/artifactory/proj-adp-ref-app-released-helm
+    # Released repository virtual helm repo (containing all released microservices)
+  - helm-chart-all-released-repo: https://arm.rnd.ki.sw.ericsson.se/artifactory/proj-adp-ref-app-released-helm
+    # The root path in docker registry where images to be released are stored
+  - docker-registry-root: armdocker.rnd.ericsson.se/proj-adp-ref-app-drop
+    # ARM generic repository where released docker images are stored in tar.gz format
+  - released-artifacts-repo: https://arm.rnd.ki.sw.ericsson.se/artifactory/proj-adp-artifacts-example-generic-local
+    # The local folder which gets created during adp-release-artifacts rule execution,
+    # which is used to store all generated images and later on upload to artifact repository.
+  - docker-images-released-folder: 'build/released-images'
+    # The local folder which gets created during adp-release-artifacts rule execution,
+    # which is used to store release helm chart and later on upload to artifact repository.
+  - helm-chart-released-folder: 'build/released-charts'
+    # DP-RAF flow report file
+  - dpraf-report-file: "dpraf_report.json"
+  - image-full-name: ${docker-registry-root}/${common.docker-image-name}
+    # Release candidate image name
+  - docker-image-name: ${common.docker-image-name}:${env.RELEASE_CANDIDATE}
+    # Released docker ARM repo
+  - docker-image-release-repo: proj-adp-ref-app-released
+    # Microservice released docker images
+  - docker-released-image: armdocker.rnd.ericsson.se/${docker-image-release-repo}/${docker-image-name}
+    # Release candidate zip package name
+  - docker-image-file: ${common.docker-image-name}-${env.RELEASE_CANDIDATE}-CXC2011995_1.zip
+    # GIT User used to clone the repository
+  - git-user: ossadmin
+    # Relative path to the project
+  - git-repo-path:  OSS/com.ericsson.oss.common.adc.service/ems-notification-collector
+    # GIT clone URL
+  - git-clone-url: "https://${git-user}@gerrit.ericsson.se/a/${git-repo-path}"
+    # ARM URL for marketplace document upload
+  - doc-arm-repo: https://arm.seli.gic.ericsson.se/artifactory/proj-eric-oss-released-generic-local/eric-oss-adc-ems-notification-collector
+env:
+  # the microservice release candidate version (e.g. 1.0.0-3)
+  - RELEASE_CANDIDATE
+  # the git commit to do the release of (generate PRI until this commit and tag it)
+  - GIT_COMMIT (default=HEAD)
+  # the ARM functional user name for Helm repository
+  - HELM_USER
+  # the ARM functional user token for Helm repository
+  - HELM_REPO_API_TOKEN
+  # the ARM functional user password for artifact repository
+  - RELEASED_ARTIFACTS_REPO_API_TOKEN
+  # the DPRAF functional username with the right permission to release product structure in PRIM
+  - DPRAF_USERNAME
+  # the DPRAF functional user token
+  - DPRAF_API_TOKEN
+  # the EVMS username
+  - EVMS_USERNAME
+  # the EVMS password
+  - EVMS_PASSWORD
+  # the GERRIT username
+  - GERRIT_USERNAME
+  # the GERRIT password
+  - GERRIT_PASSWORD
+  # the JIRA username
+  - JIRA_USERNAME
+  # the JIRA password
+  - JIRA_PASSWORD
+  # the EriDoc username
+  - ERIDOC_USERNAME
+  # the EriDoc username
+  - ERIDOC_PASSWORD
+  # Next VERSION_PREFIX value to set after PRA
+  - DRY_RUN (default=true)
+  # the functional users's API Call Authentication Token for adp.ericsson.se
+  - ADP_PORTAL_API_KEY
+var:
+  - released-version
+  - helmchart-file-name
+  - relauto-image-id
+  - docker-version
+rules:
+  # The rule cleans artifacts-properties and docker images from the docker-images-released-folder
+  clean:
+    - task: tmp
+      cmd: rm -rf .bob/
+    - task: artifact-properties
+      cmd: rm -f artifact.properties
+    - task: clean-build-folder
+      cmd: rm -rf build/
+  # Generates the released version based on environment variable RELEASE_CANDIDATE
+  # Generates adp artifacts properties
+  init:
+    - task: generate-released-version
+      cmd: echo ${env.RELEASE_CANDIDATE} | sed s/-/+/ > .bob/var.released-version
+    - task: helmchart-file-name
+      cmd: echo ${common.helm-chart-name}-${var.released-version}.tgz > .bob/var.helmchart-file-name
+    - task: adp-artifacts-properties
+      docker-image: adp-release-auto
+      cmd: generate-adp-artifacts
+        --chart-name ${common.helm-chart-name}
+        --chart-version ${var.released-version}
+        --chart-repo ${helm-chart-repo}
+    - task: get-relauto-version
+      cmd:
+        - docker images -q armdocker.rnd.ericsson.se/sandbox/adp-staging/adp-cicd/bob-adp-release-auto:testing > .bob/var.relauto-image-id
+  # The rule generates DP-RAF configuration files to upload on https://dp-raf.internal.ericsson.com/
+  # It is meant to be executed manually and not as part of CI/CD job
+  generate-dpraf-configurations:
+    - task: generate-config-files
+      docker-image: adp-release-auto
+      cmd: dpraf config-generate
+        --debug
+        -c ${common.dpraf-config-file}
+        -o ${common.dpraf-output-dir}
+
+  # Upload zip package documents to ARM
+  marketplace-upload:
+    - task: upload-doc-to-arm
+      docker-image: adp-release-auto
+      cmd: marketplace upload --arm-api-token ${env.SELI_ARTIFACTORY_REPO_PASS}
+           --arm-url ${doc-arm-repo}
+           --config docs/src/main/resources/marketplace_upload_config.yaml
+           --version ${var.released-version}
+           --debug
+           --refresh
+           --portal-token ${env.ADP_PORTAL_API_KEY}
+
+  # The rule stores the release artifacts on a generic repository where needed for DP-RAF release flow
+  # It pulls release candidate image, saves it in a tar.gz format and pushes it to released-artifacts-repo
+  # It also  fetches release candidate (e.g. 1.0.0-3) helm chart from helm-chart-repo,
+  # repackages with PRA release version (e.g. 1.0.0+3) and uploads it to released-artifacts-repo
+  # It also  fetches source code from gerrit and uploads it to released-artifacts-repo.
+  store-release-artifacts:
+    - task: pull-docker-image
+      cmd:
+        - docker pull ${docker-registry-root}/${docker-image-name}
+    - task: save-images
+      cmd:
+        - mkdir -p ${docker-images-released-folder}
+        - "docker save ${docker-registry-root}/${docker-image-name} | zip ${docker-images-released-folder}/${docker-image-file} -"
+    - task: upload-images
+      docker-image: adp-release-auto
+      cmd: upload_file.sh
+        -f "${docker-images-released-folder}/${docker-image-file}"
+        -r "${released-artifacts-repo}/${common.docker-image-name}/${var.released-version}"
+        -t "${env.RELEASED_ARTIFACTS_REPO_API_TOKEN}"
+    - task: generate-release-chart
+      docker-image: adp-release-auto
+      docker-flags:
+        - --env HELM_USER
+        - --env HELM_TOKEN=${env.HELM_REPO_API_TOKEN}
+        - --env ENABLE_HELM_V3=true
+      cmd:
+        - mkdir -p ${helm-chart-released-folder}
+        - generate_release_helm_package.sh
+          --repo ${helm-chart-repo}
+          --chart-name ${common.helm-chart-name}
+          --chart-version ${env.RELEASE_CANDIDATE}
+          --output ${helm-chart-released-folder}
+          --chart-released-version ${var.released-version}
+    - task: upload-release-chart
+      docker-image: adp-release-auto
+      docker-flags:
+        - --env ENABLE_HELM_V3=true
+      cmd: upload_file.sh
+        -f "${helm-chart-released-folder}/${var.helmchart-file-name}"
+        -r "${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}"
+        -t "${env.RELEASED_ARTIFACTS_REPO_API_TOKEN}"
+    - task: fetch-source-code
+      docker-image: adp-release-auto
+      docker-flags:
+        - --env GERRIT_USERNAME
+        - --env GERRIT_PASSWORD
+      cmd: fetch-source-code
+        --git-repo-url ${git-clone-url}
+        --tag ${env.GIT_COMMIT}
+        --output ".bob/${common.helm-chart-name}-src-${var.released-version}.tgz"
+    - task: upload-source-code
+      docker-image: adp-release-auto
+      cmd: upload_file.sh
+        -f ".bob/${common.helm-chart-name}-src-${var.released-version}.tgz"
+        -r "${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}"
+        -t "${env.RELEASED_ARTIFACTS_REPO_API_TOKEN}"
+  # Pull docker image from DROP repo
+  image:
+    - task: generate-docker-version
+      cmd: echo ${env.RELEASE_CANDIDATE} > .bob/var.docker-version
+    - task: image-pull
+      cmd: docker pull ${image-full-name}:${var.docker-version}
+    - task: image-tag-released
+      cmd: docker tag ${image-full-name}:${var.docker-version} ${docker-released-image}
+  # This rule will push docker image to proj-adp-ref-app-released
+  publish-released-docker-image:
+    - task: release-docker-image
+      cmd: docker push ${docker-released-image}
+  # The rule uploads the helm chart with PRA release version (e.g. 1.0.0+3) generated in
+  # sore-release-artifacts rule official helm repository helm-chart-released-repo
+  publish-released-helm-chart:
+    - task: release-helm-package
+      docker-image: adp-release-auto
+      docker-flags:
+        - --env HELM_USER
+        - --env HELM_TOKEN=${env.HELM_REPO_API_TOKEN}
+        - --env ENABLE_HELM_V3=true
+      cmd: upload_helm_package.sh
+        --chart-filename="${helm-chart-released-folder}/${common.helm-chart-name}-${var.released-version}.tgz"
+        --chart-repo=${helm-chart-released-repo}
+        --api-token=${env.HELM_REPO_API_TOKEN}
+        --virtual-repo=${helm-chart-all-released-repo}
+        --dry-run ${env.DRY_RUN}
+  # The rule verifies that the correct configurations are uploaded in DPRAF
+  check-dpraf-configuration:
+    - task: check-configuration
+      docker-image: adp-release-auto
+      cmd: dpraf config-check
+        --debug
+        -c ${common.dpraf-config-file}
+        -k ${env.DPRAF_API_TOKEN}
+  # The rule triggers and monitors the execution of a DPRAF flow step 1 to release the product structure in PRIM.
+  prim-release-step1:
+    - task: run-virtual-flow-step1
+      docker-image: adp-release-auto
+      cmd: dpraf flow-start
+        --debug
+        --step 1
+        -k ${env.DPRAF_API_TOKEN}
+        -c ci_config/dpraf_config.yaml
+        -i cav_src_download_url=${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}/${common.helm-chart-name}-src-${var.released-version}.tgz
+        -i cxc_initcontainer_download_url=${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}/${docker-image-file}
+        -i cxc_image_download_url=${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}/${docker-image-file}
+        -i cxc_helm_download_url=${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}/${var.helmchart-file-name}
+        -i cxa_lib_download_url=${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}/${common.helm-chart-name}-src-${var.released-version}.tgz
+        -i cxa_sdk_download_url=${released-artifacts-repo}/${common.helm-chart-name}/${var.released-version}/${common.helm-chart-name}-src-${var.released-version}.tgz
+        -i caf_rest_rstate=R7A
+        -i caf_rest_version=1.6.0
+        -i ctc_busybox_rstate=R1A
+        --report ${common.dpraf-output-dir}/${dpraf-report-file}
+        --version ${var.released-version}
+        --dry-run ${env.DRY_RUN}
+  # Generate PRI document
+  generate-pri:
+    - task: generate-pri
+      docker-image: adp-release-auto
+      docker-flags:
+        - --env PRODUCT_RELEASE_NUMBER="${var.released-version}"
+        - --env GERRIT_USERNAME
+        - --env GERRIT_PASSWORD
+        - --env JIRA_USERNAME
+        - --env JIRA_PASSWORD
+        - --env ERIDOC_USERNAME
+        - --env ERIDOC_PASSWORD
+        - --env ERIDOC_CONFIG="${common.eridoc-config}"
+        - --env JIRA_COMPONENT_LONG_NAME="${common.jira-component-name}"
+        - --env GERRIT_URL="${common.gerrit-url}"
+        - --env DPRAF_REPORT_JSON="${common.dpraf-output-dir}/${dpraf-report-file}"
+        - --env PRI_MANUAL_JSON="${common.pri-manual-input}"
+        - --env TO_CHANGE="${env.GIT_COMMIT}"
+      cmd: pri.py --upload --approve --debug --dry-run ${env.DRY_RUN}
+  # The rule triggers and monitors the execution of a DPRAF flow step 2 to release the product structure in PRIM.
+  prim-release-step2:
+    - task: run-virtual-flow-step2
+      docker-image: adp-release-auto
+      cmd: dpraf flow-start
+        --debug
+        --step 2
+        -k ${env.DPRAF_API_TOKEN}
+        -c ci_config/dpraf_config.yaml
+        --version ${var.released-version}
+        --dry-run ${env.DRY_RUN}
+  evms-registration:
+    - task: evms-registration
+      docker-image: adp-release-auto
+      cmd: dependencies register --evms
+        --evms-user ${env.EVMS_USERNAME}
+        --evms-password ${env.EVMS_PASSWORD}
+        --evms-product-name 'Catfacts Text Analyzer 1.x'
+        --evms-product-version ${var.released-version}
+        --evms-server https://10.221.108.116
+        --dependencies ./ci_config/dependencies.yaml
+        --dry-run ${env.DRY_RUN}
+        --debug
+  # Create and push git tag. Example v1.0.0+55
+  create-pra-git-tag:
+    - task: git-tag
+      docker-image: adp-release-auto
+      docker-flags:
+        - --env GERRIT_USERNAME
+        - --env GERRIT_PASSWORD
+      cmd: version-handler create-git-tag
+        --tag ${var.released-version}
+        --message "PRA Release ${var.released-version}"
+        --git-repo-url ${git-clone-url}
+        --dry-run ${env.DRY_RUN}
+  increment-version-prefix:
+    - task: git-push-version-prefix-increment
+      docker-image: adp-release-auto
+      docker-flags:
+        - --env GERRIT_USERNAME
+        - --env GERRIT_PASSWORD
+      cmd: version-handler increment
+        --step-version-prefix "MINOR"
+        --git-repo-url ${git-clone-url}
+        --branch master
+        --dry-run ${env.DRY_RUN}

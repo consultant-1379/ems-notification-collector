@@ -1,0 +1,47 @@
+#
+# COPYRIGHT Ericsson 2021
+#
+#
+#
+# The copyright to the computer program(s) herein is the property of
+#
+# Ericsson Inc. The programs may be used and/or copied only with written
+#
+# permission from Ericsson Inc. or in accordance with the terms and
+#
+# conditions stipulated in the agreement/contract under which the
+#
+# program(s) have been supplied.
+#
+
+
+# Override values for testing
+spring.datasource.url: jdbc:h2:mem:testdb
+spring.datasource.driverClassName: org.h2.Driver
+spring.datasource.username: sa
+spring.datasource.password: password
+spring.jpa.database-platform: org.hibernate.dialect.H2Dialect
+spring.jpa.generate-ddl: true
+spring.flyway.enabled: false
+
+spring.quartz.job-store-type: memory
+spring.quartz.properties.org.quartz:
+  scheduler:
+    instanceId: AUTO #Default hostname and timestamp generate instance ID, which can be any string, but must be the only corresponding qrtz_scheduler_state INSTANCE_NAME field for all dispatchers
+    #instanceName: clusteredScheduler #quartzScheduler
+  jobStore:
+    class: org.quartz.simpl.RAMJobStore
+
+# TODO these entries only needed for the ems-notification-collector-app/src/test/java/com/ericsson/oss/adc/emsnc/client/example/SampleRestClientTest.java, remove
+#Set the stubrunner credentials:
+#stubrunner.username: <LAN SIGNUM ID>
+#stubrunner.password: <LAN encripted PWD or JFrog API Key>
+stubrunner.username: ${SELI_ARTIFACTORY_REPO_USER}
+stubrunner.password: ${SELI_ARTIFACTORY_REPO_PASS}
+
+emsnc:
+  kafka:
+    emsnc-internal:
+      bootstrap-servers: localhost:9092
+    dmaap:
+      bootstrap-servers: localhost:9093

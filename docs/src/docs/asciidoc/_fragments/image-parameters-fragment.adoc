@@ -1,0 +1,168 @@
+////
+  // COPYRIGHT Ericsson 2021
+  //
+  //
+  //
+  // The copyright to the computer program(s) herein is the property of
+  //
+  // Ericsson Inc. The programs may be used and/or copied only with written
+  //
+  // permission from Ericsson Inc. or in accordance with the terms and
+  //
+  // conditions stipulated in the agreement/contract under which the
+  //
+  // program(s) have been supplied.
+////
+Parameters without a default value are mandatory, if not specified, the container fails to start up.
+|===
+|Name |Description |Default
+
+3+^|*Kafka* related parameters
+
+|`EMSNC_KAFKA_HOST`
+|Broker host for the internal Kafka cluster.
+|
+
+|`EMSNC_KAFKA_PORT`
+|Broker port for the internal Kafka cluster.
+|
+
+|`EMSNC_KAFKA_TOPIC_COUNT`
+|Topic count for the EMSNC internal Kafka cluster.
+|`15`
+
+|`EMSNC_KAFKA_PRODUCER_ISOLATION`
+|Controls level of synchronization for the _Kafka_ producers. Possible values: `NONE`, `TRANSACTIONAL`, `IDEMPOTENT`.
+
+`NONE`: producer operations don't use transactions. Highest performance, high chance of message duplication at network failures or scaling operations.
+
+`TRANSACTIONAL`: producer operations use transactions, in case of any failure, partially processed values are rolled back. There is still some chance for message duplication, when the application transaction executed cleanly, but there are failures in the synchronization between the producer and the _Kafka_ cluster.
+
+`IDEMPOTENT`: producer operations use transactions, and idempotent producer option is also enabled. Least risk of message duplication, with higher cost on performance.
+
+|`NONE`
+
+|`EMSNC_KAFKA_SEND_TIMEOUT`
+|Timeout in milliseconds for sending messages to the internal Kafka cluster.
+|`5000`
+
+|`EMSNC_KAFKA_PARTITIONS`
+|Sets how many partitions are for each topic.
+|`4`
+
+|`EMSNC_KAFKA_REPLICATION_FACTOR`
+|Sets how many brokers should replicate a topic.
+|`1`
+
+|`EMSNC_KAFKA_CONCURRENCY_PER_TOPIC`
+|Controls the thread pool size for processing internal topics. The actual pool size is calculated as `EMSNC_KAFKA_CONCURRENCY_PER_TOPIC * EMSNC_KAFKA_PARTITIONS * EMSNC_KAFKA_TOPIC_COUNT`
+|`2`
+
+|`EMSNC_KAFKA_CONSUMER_THREAD_PRIORITY`
+|Controls the thread priority for the Kafka processing threads. Possible values: `1`-`10`. Recommended value is lower than the default thread priority of `5` to avoid starvation of synchronous threads (such as healthcheck) in case of a big processing backlog.
+|`3`
+
+|`DMAAP_KAFKA_HOST`
+|Broker host for the DMaaP Kafka cluster.
+|
+
+|`DMAAP_KAFKA_PORT`
+|Broker port for the DMaaP Kafka cluster.
+|
+
+|`DMAAP_KAFKA_TOPIC`
+|Topic to propagate notifications on DMaaP Kafka cluster.
+|`dmaap-result-topic`
+
+|`DMAAP_KAFKA_PRODUCER_ISOLATION`
+|Controls level of synchronization for the _Kafka_ producers. Possible values: `NONE`, `TRANSACTIONAL`, `IDEMPOTENT`. See `EMSNC_KAFKA_PRODUCER_ISOLATION` for details.
+
+_Note_: if this setting is TRANSACTIONAL or IDEMPOTENT, consumers of the `DMAAP_KAFKA_TOPIC` must read with `isolation.level` of `read_committed` to guarantee consistency. (see https://kafka.apache.org/documentation/#consumerconfigs_isolation.level[Kafka documentation])
+
+|`NONE`
+
+|`DMAAP_KAFKA_SEND_TIMEOUT`
+|Timeout in milliseconds for sending messages to the DMaaP Kafka cluster.
+|`5000`
+
+|`DMAAP_KAFKA_PARTITION_COUNT`
+|Partition count applicable to the topic provided with `DMAAP_KAFKA_topic`.
+|`4`
+
+|`DMAAP_KAFKA_REPLICATION_FACTOR`
+|Sets how many brokers should replicate a topic.
+|`1`
+
+3+^|*Database* related parameters
+
+|`DB_HOST`
+|PostgreSQL database host address.
+|
+
+|`DB_PORT`
+|PostgreSQL database port
+|`5432`
+
+|`DB_NAME`
+|Database name in the PostgreSQL database.
+|`emsnc_db`
+
+|`DB_USERNAME`
+|Username for the PostgreSQL database.
+|
+
+|`DB_PASSWORD`
+|Password to access the PostgreSQL database.
+|
+
+3+^|*Timing* related parameters
+|`CONNECTED_SYSTEMS_POLLING_FREQUENCY`
+|Frequency for polling ENM instances from Connected Systems. Possible values: `10_SEC`, `20_SEC`, `30_SEC`, `1_MIN`, `2_MIN`.
+|`2_MIN`
+
+|`ENM_POLLING_FREQUENCY`
+|Frequency for polling events from ENM instances. Possible values: `10_SEC`, `20_SEC`, `30_SEC`, `1_MIN`, `2_MIN`.
+|`30_SEC`
+
+|`ENM_POLLING_OFFSET`
+|Offset in seconds between 5 and 60, subtracted from each polling window, can be set to a higher value if events appear late in ENM, and miss the polling window.
+|`5`
+
+|`SCHEDULING_THREAD_COUNT`
+|Number of threads executing scheduled tasks.
+|`10`
+
+|`SCHEDULING_THREAD_PRIORITY`
+|Priority of scheduled threads. Possible values: `1`-`10`. Recommended value is  the default thread priority of `5`.
+|`5`
+
+3+^|Other configuration
+
+|`SUBSCRIPTION_NE_TYPES`
+|Comma separated list of NE types, such as `RadioNode,Router6675`. EMS-N-C will propagate notifications originating from the NE types specified here.
+|
+
+|`CONNECTED_SYSTEMS_HOST`
+|Host of the Connected Systems REST API.
+|
+
+|`CONNECTED_SYSTEMS_PORT`
+|Port of the Connected Systems REST API.
+|
+
+|`JAVA_OPTS`
+|Extra arguments to the _Java runtime_.
+|_empty_
+
+|`ROOT_LOG_LEVEL`
+|Log level for all other packages, such as Spring and third parties. Possible values: `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`.
+|INFO
+
+|`EMSNC_LOG_LEVEL`
+|Log level for EMSNC. Possible values: `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`.
+|INFO
+
+|`KAFKA_LOG_LEVEL`
+|Log level for Apache Kafka. Possible values: `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`.
+|ERROR
+|===
